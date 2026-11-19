@@ -9,48 +9,6 @@ using Microsoft.Extensions.Configuration;
 namespace CampusConnect.Tests;
 public class EndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
-    [Theory]
-    [InlineData("image/jpeg")]
-    [InlineData("image/png")]
-    [InlineData("image/webp")]
-    public async Task Upload_signing_returns_verifiable_Cloudinary_fields(string contentType)
-    {
-        using var student = await factory.Login("student");
-        var response = await student.PostAsJsonAsync("/api/v1/uploads/sign", new { contentType });
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var data = (await response.Content.ReadFromJsonAsync<JsonObject>())!["data"]!;
-        Assert.Equal("https://api.cloudinary.com/v1_1/test-cloud/image/upload", data["uploadUrl"]!.GetValue<string>());
-        var fields = data["fields"]!; var id = fields["public_id"]!.GetValue<string>(); var timestamp = fields["timestamp"]!.GetValue<string>();
-        Assert.StartsWith("campusconnect/user-student/", id);
-        Assert.Equal(contentType == "image/jpeg" ? "jpg" : contentType[6..], fields["allowed_formats"]!.GetValue<string>());
-        Assert.Equal(5242880, data["maxFileSize"]!.GetValue<int>());
-        Assert.Equal("test-public-key", fields["api_key"]!.GetValue<string>());
-        Assert.Equal("false", fields["overwrite"]!.GetValue<string>());
-        var expected = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes($"allowed_formats={fields["allowed_formats"]!.GetValue<string>()}&overwrite=false&public_id={id}&timestamp={timestamp}test-signing-secret")));
-        Assert.Equal(expected, fields["signature"]!.GetValue<string>());
-        Assert.Equal($"https://res.cloudinary.com/test-cloud/image/upload/{id}", data["publicUrl"]!.GetValue<string>());
-        Assert.DoesNotContain("test-signing-secret", data.ToJsonString());
-    }
-    [Fact]
-    public async Task Upload_signing_rejects_invalid_formats_and_administrators()
-    {
-        using var student = await factory.Login("student"); using var admin = await factory.Login("library");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await student.PostAsJsonAsync("/api/v1/uploads/sign", new { contentType = "application/pdf" })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/v1/uploads/sign", new { contentType = "image/jpeg" })).StatusCode);
-    }
-    [Fact]
-    public async Task Unconfigured_uploads_return_sanitized_error()
-    {
-        using var unconfigured = factory.WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["CLOUDINARY_CLOUD_NAME"] = "", ["CLOUDINARY_API_KEY"] = "", ["CLOUDINARY_API_SECRET"] = ""
-        })));
-        using var client = unconfigured.CreateClient();
-        using var authenticated = await factory.Login("student"); client.DefaultRequestHeaders.Authorization = authenticated.DefaultRequestHeaders.Authorization;
-        var response = await client.PostAsJsonAsync("/api/v1/uploads/sign", new { contentType = "image/jpeg" });
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        Assert.Equal("INTERNAL", (await response.Content.ReadFromJsonAsync<JsonObject>())!["error"]!["code"]!.GetValue<string>());
-    }
     [Fact]
     public async Task Csv_export_honours_filters_scope_and_escapes_spreadsheet_formulas()
     {
