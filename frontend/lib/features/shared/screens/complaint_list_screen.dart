@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/errors/app_exception.dart';
 import '../../../core/utils/auto_refresh.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../di/app_scope.dart';
@@ -120,6 +124,40 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
 
   /// Quietly picks up new complaints and status changes. Skipped while the
   /// user is reading further down the list, so nothing jumps under their finger.
+  bool _exporting = false;
+
+  /// Exports the (filtered) list as a CSV file through the system share sheet.
+  Future<void> _export() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final csv = await AppScope.of(context).complaints
+          .exportCsv(filter: _controller!.filter);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(csv)),
+              mimeType: 'text/csv',
+              name: 'complaints.csv',
+            ),
+          ],
+          fileNameOverrides: const ['complaints.csv'],
+          subject: 'CampusConnect complaints',
+        ),
+      );
+    } on AppException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } on Object {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not export the complaints.')),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   void _checkForUpdates() {
     if (!mounted) return;
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
@@ -169,11 +207,30 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!keyboardOpen)
-                Text(
-                  widget.title,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (widget.department || widget.superAdmin)
+                      IconButton.outlined(
+                        tooltip: 'Export CSV',
+                        onPressed: _exporting ? null : _export,
+                        icon: _exporting
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.ios_share_rounded),
+                      ),
+                  ],
                 ),
               if (_counts[null] != null)
                 Text(
@@ -205,11 +262,13 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
                   prefixIcon: Icon(Icons.search),
                 ),
               ),
-              if (!keyboardOpen && widget.superAdmin) const SizedBox(height: 8),
-              if (!keyboardOpen && widget.superAdmin)
+              if (!keyboardOpen && (widget.superAdmin || widget.department))
+                const SizedBox(height: 8),
+              if (!keyboardOpen && (widget.superAdmin || widget.department))
                 ComplaintFilters(
                   controller: controller,
                   departments: _departments,
+                  showDepartment: widget.superAdmin,
                 ),
               const SizedBox(height: 8),
               if (!keyboardOpen)

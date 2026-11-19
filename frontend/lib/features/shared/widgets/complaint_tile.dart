@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/priority_badge.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../domain/enums/complaint_category.dart';
 import '../../../domain/models/complaint_summary.dart';
@@ -89,7 +90,15 @@ final class ComplaintTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    StatusBadge(status: item.status),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        StatusBadge(status: item.status),
+                        if (item.isOverdue) const OverdueBadge(),
+                        PriorityBadge(priority: item.priority),
+                      ],
+                    ),
                   ],
                 ),
               ),

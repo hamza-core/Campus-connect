@@ -1,9 +1,11 @@
 import '../../../core/errors/app_exception.dart';
+import '../../../domain/enums/complaint_category.dart';
 import '../../../domain/enums/complaint_status.dart';
 import '../../../domain/enums/user_role.dart';
 import '../../../domain/models/app_user.dart';
 import '../../../domain/models/dashboard_stats.dart';
 import '../../../domain/models/department_stat.dart';
+import '../../../domain/models/recurring_issue.dart';
 import '../../../domain/models/status_stat.dart';
 import '../../../domain/models/trend_point.dart';
 import '../../mock_data/mock_seed.dart';
@@ -37,6 +39,27 @@ final class MockDashboardRepository implements DashboardRepository {
       rejected: count(ComplaintStatus.rejected),
       overdue: items.where((item) => item.isOverdue).length,
     );
+  }
+
+  @override
+  Future<List<RecurringIssue>> recurring() async {
+    final items = _complaints.visibleTo(_admin).toList();
+    final groups = <(ComplaintCategory, String), int>{};
+    for (final item in items) {
+      final key = (item.summary.category, item.subIssue ?? 'General');
+      groups[key] = (groups[key] ?? 0) + 1;
+    }
+    final entries = groups.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return [
+      for (final entry in entries.take(10))
+        RecurringIssue(
+          category: entry.key.$1,
+          subIssue: entry.key.$2,
+          count: entry.value,
+          supportTotal: 0,
+        ),
+    ];
   }
 
   @override

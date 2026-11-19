@@ -42,6 +42,44 @@ final class ApiClient {
     Map<String, Object?>? body,
     bool authenticated = true,
   }) async {
+    final response = await _send(
+      method,
+      endpoint,
+      query: query,
+      body: body,
+      authenticated: authenticated,
+    );
+    final status = response.statusCode;
+    if (status == 204) return const {};
+    final payload = _decode(response.bodyBytes);
+    if (status >= 200 && status < 300) {
+      if (payload == null) {
+        throw const ServerException('The server returned an invalid response.');
+      }
+      return payload;
+    }
+    throw _errorFor(status, payload);
+  }
+
+  /// Like [request] but returns the raw text body (used for the CSV export).
+  Future<String> requestText(
+    String method,
+    String endpoint, {
+    Map<String, String>? query,
+  }) async {
+    final response = await _send(method, endpoint, query: query);
+    final status = response.statusCode;
+    if (status >= 200 && status < 300) return utf8.decode(response.bodyBytes);
+    throw _errorFor(status, _decode(response.bodyBytes));
+  }
+
+  Future<http.Response> _send(
+    String method,
+    String endpoint, {
+    Map<String, String>? query,
+    Map<String, Object?>? body,
+    bool authenticated = true,
+  }) async {
     final relative = Uri.parse(endpoint);
     if (relative.hasScheme ||
         relative.hasAuthority ||
@@ -81,23 +119,19 @@ final class ApiClient {
     } on TimeoutException {
       throw const NetworkException('The request timed out. Try again.');
     }
-
-    final status = response.statusCode;
-    if (status == 401 && token != null) _tokens.clearIfCurrent(token);
-    if (status == 204) return const {};
-    final payload = _decode(response.bodyBytes);
-    if (status >= 200 && status < 300) {
-      if (payload == null) {
-        throw const ServerException('The server returned an invalid response.');
-      }
-      return payload;
+    if (response.statusCode == 401 && token != null) {
+      _tokens.clearIfCurrent(token);
     }
+    return response;
+  }
+
+  AppException _errorFor(int status, Map<String, Object?>? payload) {
     final error = payload?['error'];
     final message = error is Map<String, Object?> ? error['message'] : null;
     final detail = message is String && message.trim().isNotEmpty
         ? message
         : null;
-    throw switch (status) {
+    return switch (status) {
       401 => UnauthorizedException(detail ?? 'Please sign in again.'),
       403 => const ForbiddenException(),
       404 => const NotFoundException(),

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../core/network/token_store.dart';
+import '../core/storage/secure_token_storage.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/complaint_repository.dart';
 import '../data/realtime/notification_realtime.dart';
@@ -45,7 +46,7 @@ final class AppDependencies {
       );
       return AppDependencies(
         config: config,
-        auth: RemoteAuthRepository(api, tokens),
+        auth: RemoteAuthRepository(api, tokens, const SecureTokenStorage()),
         complaints: RemoteComplaintRepository(api),
         dashboard: RemoteDashboardRepository(api),
         notifications: NotificationController(

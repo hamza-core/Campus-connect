@@ -25,6 +25,7 @@ void main() {
         'category': 'LIBRARY',
         'title': 'Library lights',
         'description': 'The upstairs lights do not turn on.',
+        'priority': 'MEDIUM',
       });
       return http.Response(
         '{"data":{"id":"1","ticket":"CC-2026-0001","title":"Library lights","description":"The upstairs lights do not turn on.","category":"LIBRARY","department":{"id":"lib","name":"Library","slug":"library"},"status":"PENDING","createdAt":"2026-11-19T09:00:00Z","rowVersion":"version"}}',

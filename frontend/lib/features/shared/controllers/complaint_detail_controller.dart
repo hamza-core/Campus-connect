@@ -66,6 +66,31 @@ final class ComplaintDetailController extends BaseController {
     }
   }
 
+  /// Student rates a resolved complaint (once).
+  Future<void> rate(int rating, String comment) async {
+    if (saving || complaint == null) return;
+    saving = true;
+    actionError = null;
+    safeNotify();
+    try {
+      complaint = await _repository.submitFeedback(
+        id: id,
+        rating: rating,
+        comment: comment,
+      );
+    } on ConflictException catch (error) {
+      actionError = error.message;
+      await load();
+    } on ForbiddenException {
+      forbidden = true;
+    } on AppException catch (error) {
+      actionError = error.message;
+    } finally {
+      saving = false;
+      safeNotify();
+    }
+  }
+
   Future<bool> addRemark(String text) async {
     if (saving || complaint == null) return false;
     final message = text.trim();

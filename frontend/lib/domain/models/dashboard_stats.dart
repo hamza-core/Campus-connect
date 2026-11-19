@@ -6,6 +6,8 @@ final class DashboardStats {
     resolved: json['resolved'] as int,
     rejected: json['rejected'] as int,
     overdue: json['overdue'] as int,
+    avgResolutionHours: (json['avgResolutionHours'] as num?)?.toDouble(),
+    avgRating: (json['avgRating'] as num?)?.toDouble(),
   );
 
   Map<String, Object?> toJson() => {
@@ -15,6 +17,8 @@ final class DashboardStats {
     'resolved': resolved,
     'rejected': rejected,
     'overdue': overdue,
+    'avgResolutionHours': avgResolutionHours,
+    'avgRating': avgRating,
   };
 
   DashboardStats copyWith({
@@ -24,6 +28,8 @@ final class DashboardStats {
     int? resolved,
     int? rejected,
     int? overdue,
+    double? avgResolutionHours,
+    double? avgRating,
   }) => DashboardStats(
     total: total ?? this.total,
     pending: pending ?? this.pending,
@@ -31,6 +37,8 @@ final class DashboardStats {
     resolved: resolved ?? this.resolved,
     rejected: rejected ?? this.rejected,
     overdue: overdue ?? this.overdue,
+    avgResolutionHours: avgResolutionHours ?? this.avgResolutionHours,
+    avgRating: avgRating ?? this.avgRating,
   );
 
   const DashboardStats({
@@ -40,6 +48,8 @@ final class DashboardStats {
     required this.resolved,
     required this.rejected,
     required this.overdue,
+    this.avgResolutionHours,
+    this.avgRating,
   });
 
   final int total;
@@ -48,4 +58,6 @@ final class DashboardStats {
   final int resolved;
   final int rejected;
   final int overdue;
+  final double? avgResolutionHours;
+  final double? avgRating;
 }

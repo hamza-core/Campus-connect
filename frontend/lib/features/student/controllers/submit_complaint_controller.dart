@@ -7,6 +7,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../../core/storage/complaint_photo_store.dart';
 import '../../../data/repositories/complaint_repository.dart';
 import '../../../domain/enums/complaint_category.dart';
+import '../../../domain/enums/priority.dart';
 import '../../../domain/models/complaint.dart';
 
 final class SubmitComplaintController extends BaseController {
@@ -18,6 +19,9 @@ final class SubmitComplaintController extends BaseController {
   final List<Uint8List> _photos = [];
   List<Uint8List> get photos => List.unmodifiable(_photos);
   Complaint? submitted;
+  String? subIssue;
+  Priority priority = Priority.medium;
+  bool anonymous = false;
   String? photoMessage;
   bool picking = false;
 
@@ -47,6 +51,27 @@ final class SubmitComplaintController extends BaseController {
     }
   }
 
+  void chooseSubIssue(String? value) {
+    subIssue = subIssue == value ? null : value;
+    safeNotify();
+  }
+
+  void choosePriority(Priority value) {
+    priority = value;
+    safeNotify();
+  }
+
+  void setAnonymous(bool value) {
+    anonymous = value;
+    safeNotify();
+  }
+
+  /// Forget the category-specific choice when the category changes.
+  void resetForCategory() {
+    subIssue = null;
+    safeNotify();
+  }
+
   void removePhoto(int index) {
     if (state == ViewState.loading || picking) return;
     _photos.removeAt(index);
@@ -56,14 +81,19 @@ final class SubmitComplaintController extends BaseController {
   Future<void> submit(
     ComplaintCategory category,
     String title,
-    String description,
-  ) async {
+    String description, {
+    String? location,
+  }) async {
     if (state == ViewState.loading || picking || submitted != null) return;
     await run(() async {
       final result = await _repository.submit(
         category: category,
         title: title,
         description: description,
+        subIssue: subIssue,
+        priority: priority,
+        location: location,
+        anonymousToStaff: anonymous,
       );
       if (_photos.isNotEmpty) {
         try {

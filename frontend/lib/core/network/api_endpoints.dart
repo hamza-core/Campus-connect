@@ -9,6 +9,8 @@ abstract final class ApiEndpoints {
   static const analyticsByDepartment = 'analytics/by-department';
   static const analyticsByStatus = 'analytics/by-status';
   static const analyticsTrend = 'analytics/trend';
+  static const analyticsRecurring = 'analytics/recurring';
+  static const exportCsv = 'admin/complaints/export.csv';
   static const notifications = 'notifications';
   static const notificationsReadAll = 'notifications/read-all';
 
@@ -16,4 +18,5 @@ abstract final class ApiEndpoints {
       '$complaints/${Uri.encodeComponent(id)}';
   static String complaintStatus(String id) => '${complaint(id)}/status';
   static String complaintComments(String id) => '${complaint(id)}/comments';
+  static String complaintFeedback(String id) => '${complaint(id)}/feedback';
 }

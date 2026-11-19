@@ -26,6 +26,7 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   final _form = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _description = TextEditingController();
+  final _location = TextEditingController();
 
   @override
   void didChangeDependencies() {
@@ -41,6 +42,7 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   void dispose() {
     _title.dispose();
     _description.dispose();
+    _location.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -167,7 +169,10 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                             width: (constraints.maxWidth - 12) / 2,
                             child: ComplaintCategoryCard(
                               item: item,
-                              onTap: () => setState(() => _category = item),
+                              onTap: () {
+                                _controller!.resetForCategory();
+                                setState(() => _category = item);
+                              },
                             ),
                           ),
                       ],
@@ -180,6 +185,7 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     form: _form,
                     title: _title,
                     description: _description,
+                    location: _location,
                   ),
               ],
             );

@@ -1,5 +1,6 @@
 import '../enums/complaint_category.dart';
 import '../enums/complaint_status.dart';
+import '../enums/priority.dart';
 import 'department.dart';
 
 final class ComplaintSummary {
@@ -14,6 +15,8 @@ final class ComplaintSummary {
         ),
         status: ComplaintStatus.fromApiValue(json['status'] as String),
         createdAt: DateTime.parse(json['createdAt'] as String),
+        priority: Priority.fromApiValue(json['priority'] as String?),
+        isOverdue: json['isOverdue'] as bool? ?? false,
       );
 
   Map<String, Object?> toJson() => {
@@ -24,6 +27,8 @@ final class ComplaintSummary {
     'department': department.toJson(),
     'status': status.apiValue,
     'createdAt': createdAt.toUtc().toIso8601String(),
+    'priority': priority.apiValue,
+    'isOverdue': isOverdue,
   };
 
   ComplaintSummary copyWith({
@@ -34,6 +39,8 @@ final class ComplaintSummary {
     Department? department,
     ComplaintStatus? status,
     DateTime? createdAt,
+    Priority? priority,
+    bool? isOverdue,
   }) => ComplaintSummary(
     id: id ?? this.id,
     ticket: ticket ?? this.ticket,
@@ -42,6 +49,8 @@ final class ComplaintSummary {
     department: department ?? this.department,
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
+    priority: priority ?? this.priority,
+    isOverdue: isOverdue ?? this.isOverdue,
   );
 
   const ComplaintSummary({
@@ -52,6 +61,8 @@ final class ComplaintSummary {
     required this.department,
     required this.status,
     required this.createdAt,
+    this.priority = Priority.medium,
+    this.isOverdue = false,
   });
 
   final String id;
@@ -61,4 +72,6 @@ final class ComplaintSummary {
   final Department department;
   final ComplaintStatus status;
   final DateTime createdAt;
+  final Priority priority;
+  final bool isOverdue;
 }

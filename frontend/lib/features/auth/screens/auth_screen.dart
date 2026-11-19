@@ -30,6 +30,7 @@ final class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+  final _studentId = TextEditingController();
   bool _obscure = true;
 
   @override
@@ -38,6 +39,7 @@ final class _AuthScreenState extends State<AuthScreen> {
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
+    _studentId.dispose();
     super.dispose();
   }
 
@@ -49,6 +51,9 @@ final class _AuthScreenState extends State<AuthScreen> {
         _name.text.trim(),
         _email.text.trim(),
         _password.text,
+        studentId: _studentId.text.trim().isEmpty
+            ? null
+            : _studentId.text.trim(),
       );
     } else {
       widget.controller.signIn(_email.text.trim(), _password.text);
@@ -142,6 +147,20 @@ final class _AuthScreenState extends State<AuthScreen> {
           ),
           validator: (value) => Validators.length(value, 'Name', 2, 80),
           textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: 12),
+      ],
+      if (register) ...[
+        TextFormField(
+          controller: _studentId,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            hintText: 'Student ID (optional)',
+            prefixIcon: Icon(Icons.badge_outlined),
+          ),
+          validator: (value) => (value ?? '').trim().length > 30
+              ? 'Student ID must be 30 characters or fewer.'
+              : null,
         ),
         const SizedBox(height: 12),
       ],

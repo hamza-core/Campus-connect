@@ -12,7 +12,9 @@ import '../../../di/app_scope.dart';
 import '../../../domain/models/department_stat.dart';
 import '../../../domain/models/status_stat.dart';
 import '../../../domain/models/trend_point.dart';
+import '../../../domain/models/recurring_issue.dart';
 import '../../shared/widgets/dashboard_charts.dart';
+import '../../shared/widgets/recurring_issues_card.dart';
 import '../../super_admin/widgets/department_complaint_chart.dart';
 import '../controllers/admin_dashboard_controller.dart';
 
@@ -38,6 +40,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   List<DepartmentStat>? _departments;
   List<StatusStat>? _byStatus;
   List<TrendPoint>? _trend;
+  List<RecurringIssue>? _recurring;
   bool _chartsFailed = false;
 
   @override
@@ -67,6 +70,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     try {
       final status = await dashboard.byStatus();
       final trend = await dashboard.trend();
+      final recurring = await dashboard.recurring();
       final departments = widget.showChart
           ? await dashboard.byDepartment()
           : null;
@@ -74,6 +78,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       setState(() {
         _byStatus = status;
         _trend = trend;
+        _recurring = recurring;
         _departments = departments;
         _chartsFailed = false;
       });
@@ -112,6 +117,9 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     'In progress' => (const Color(0xFFDDE8FD), const Color(0xFF1D4ED8)),
     'Resolved' => (const Color(0xFFDDF6E4), const Color(0xFF15803D)),
     'Rejected' => (const Color(0xFFFDE0E0), const Color(0xFFB91C1C)),
+    'Overdue' => (const Color(0xFFFDE0E0), const Color(0xFFB42318)),
+    'Avg. resolution' => (const Color(0xFFE3ECE9), const Color(0xFF004741)),
+    'Avg. rating' => (const Color(0xFFFBF0C5), const Color(0xFF8A5A00)),
     _ => (
       Theme.of(context).colorScheme.primary,
       Theme.of(context).colorScheme.onPrimary,
@@ -181,12 +189,25 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     }
                     final stats = controller.stats;
                     if (stats == null) return const SizedBox.shrink();
+                    String hours(double? h) => h == null
+                        ? '—'
+                        : h < 48
+                        ? '${h.toStringAsFixed(1)} h'
+                        : '${(h / 24).toStringAsFixed(1)} d';
                     final values = [
-                      ('Total complaints', stats.total),
-                      ('Pending', stats.pending),
-                      ('In progress', stats.inProgress),
-                      ('Resolved', stats.resolved),
-                      ('Rejected', stats.rejected),
+                      ('Total complaints', '${stats.total}'),
+                      ('Pending', '${stats.pending}'),
+                      ('In progress', '${stats.inProgress}'),
+                      ('Resolved', '${stats.resolved}'),
+                      ('Rejected', '${stats.rejected}'),
+                      ('Overdue', '${stats.overdue}'),
+                      ('Avg. resolution', hours(stats.avgResolutionHours)),
+                      (
+                        'Avg. rating',
+                        stats.avgRating == null
+                            ? '—'
+                            : '${stats.avgRating!.toStringAsFixed(1)} / 5',
+                      ),
                     ];
                     return LayoutBuilder(
                       builder: (context, constraints) {
@@ -199,7 +220,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           spacing: 10,
                           runSpacing: 10,
                           children: [
-                            for (final (label, count) in values)
+                            for (final (label, shown) in values)
                               SizedBox(
                                 width:
                                     (constraints.maxWidth -
@@ -215,7 +236,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          '$count',
+                                          shown,
                                           style: textTheme.headlineMedium
                                               ?.copyWith(
                                                 fontWeight: FontWeight.w800,
@@ -252,6 +273,10 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   StatusDonutChart(stats: _byStatus!),
                   const SizedBox(height: 16),
                   TrendLineChart(points: _trend!),
+                  if (_recurring != null) ...[
+                    const SizedBox(height: 16),
+                    RecurringIssuesCard(issues: _recurring!),
+                  ],
                   if (widget.showChart && _departments != null) ...[
                     const SizedBox(height: 16),
                     DepartmentComplaintChart(departments: _departments!),

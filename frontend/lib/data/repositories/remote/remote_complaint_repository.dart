@@ -2,6 +2,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../domain/enums/complaint_category.dart';
 import '../../../domain/enums/complaint_status.dart';
+import '../../../domain/enums/priority.dart';
 import '../../../domain/models/complaint.dart';
 import '../../../domain/models/complaint_filter.dart';
 import '../../../domain/models/complaint_summary.dart';
@@ -28,6 +29,8 @@ final class RemoteComplaintRepository implements ComplaintRepository {
         if (filter.category case final category?) 'category': category.apiValue,
         if (filter.status case final status?) 'status': status.apiValue,
         'departmentId': ?filter.departmentId,
+        if (filter.priority case final priority?) 'priority': priority.apiValue,
+        if (filter.overdueOnly) 'overdue': 'true',
       },
     );
     return PagedResult.fromJson(response, ComplaintSummary.fromJson);
@@ -53,6 +56,10 @@ final class RemoteComplaintRepository implements ComplaintRepository {
     required ComplaintCategory category,
     required String title,
     required String description,
+    String? subIssue,
+    Priority priority = Priority.medium,
+    String? location,
+    bool anonymousToStaff = false,
   }) async {
     final response = await _api.request(
       'POST',
@@ -61,6 +68,11 @@ final class RemoteComplaintRepository implements ComplaintRepository {
         'category': category.apiValue,
         'title': title,
         'description': description,
+        'priority': priority.apiValue,
+        'subIssue': ?subIssue,
+        if (location != null && location.trim().isNotEmpty)
+          'location': location.trim(),
+        if (anonymousToStaff) 'anonymousToStaff': true,
       },
     );
     return Complaint.fromJson(response['data'] as Map<String, Object?>);
@@ -84,4 +96,38 @@ final class RemoteComplaintRepository implements ComplaintRepository {
     );
     return Complaint.fromJson(response['data'] as Map<String, Object?>);
   }
+
+  @override
+  Future<Complaint> submitFeedback({
+    required String id,
+    required int rating,
+    String? comment,
+  }) async {
+    final response = await _api.request(
+      'POST',
+      ApiEndpoints.complaintFeedback(id),
+      body: {
+        'rating': rating,
+        if (comment != null && comment.trim().isNotEmpty)
+          'comment': comment.trim(),
+      },
+    );
+    return Complaint.fromJson(response['data'] as Map<String, Object?>);
+  }
+
+  @override
+  Future<String> exportCsv({
+    ComplaintFilter filter = const ComplaintFilter(),
+  }) => _api.requestText(
+    'GET',
+    ApiEndpoints.exportCsv,
+    query: {
+      if (filter.search.trim().isNotEmpty) 'q': filter.search.trim(),
+      if (filter.category case final category?) 'category': category.apiValue,
+      if (filter.status case final status?) 'status': status.apiValue,
+      'departmentId': ?filter.departmentId,
+      if (filter.priority case final priority?) 'priority': priority.apiValue,
+      if (filter.overdueOnly) 'overdue': 'true',
+    },
+  );
 }

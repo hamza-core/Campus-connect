@@ -11,7 +11,10 @@ import '../../../core/widgets/shimmer_list.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../di/app_scope.dart';
 import '../controllers/complaint_detail_controller.dart';
+import '../../../domain/enums/complaint_status.dart';
+import '../widgets/complaint_details_card.dart';
 import '../widgets/complaint_photo_gallery.dart';
+import '../widgets/rating_card.dart';
 import '../widgets/complaint_section.dart';
 import '../widgets/complaint_timeline.dart';
 import '../widgets/department_complaint_actions.dart';
@@ -164,6 +167,10 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                           child: Text('Submitted by ${complaint.authorName}'),
                         ),
                       ComplaintSection(
+                        title: 'Details',
+                        child: ComplaintDetailsCard(complaint: complaint),
+                      ),
+                      ComplaintSection(
                         title: 'Description',
                         child: SelectableText(complaint.description),
                       ),
@@ -188,6 +195,18 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                                     message: body,
                                   ),
                             ],
+                          ),
+                        ),
+                      if (complaint.feedback != null ||
+                          (isStudent &&
+                              complaint.summary.status ==
+                                  ComplaintStatus.resolved))
+                        ComplaintSection(
+                          title: isStudent ? 'Your rating' : 'Student rating',
+                          child: FeedbackSection(
+                            controller: controller,
+                            feedback: complaint.feedback,
+                            canRate: isStudent,
                           ),
                         ),
                       ComplaintSection(

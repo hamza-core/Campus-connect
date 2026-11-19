@@ -5,6 +5,7 @@ import '../../../core/utils/validators.dart';
 import '../../../core/widgets/clay_button.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../domain/enums/complaint_category.dart';
+import '../../../domain/enums/priority.dart';
 import '../../shared/widgets/complaint_tile.dart';
 import '../controllers/submit_complaint_controller.dart';
 
@@ -16,12 +17,14 @@ final class SubmitComplaintForm extends StatelessWidget {
     required this.form,
     required this.title,
     required this.description,
+    required this.location,
   });
   final ComplaintCategory category;
   final SubmitComplaintController controller;
   final GlobalKey<FormState> form;
   final TextEditingController title;
   final TextEditingController description;
+  final TextEditingController location;
 
   @override
   Widget build(BuildContext context) => Form(
@@ -60,6 +63,31 @@ final class SubmitComplaintForm extends StatelessWidget {
           style: const TextStyle(color: Color(0xFF5F6B68)),
         ),
         const SizedBox(height: 22),
+        const _FieldLabel('What kind of problem? (optional)'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final issue in category.subIssues)
+                FilterChip(
+                  label: Text(issue),
+                  selected: controller.subIssue == issue,
+                  onSelected: controller.state == ViewState.loading
+                      ? null
+                      : (_) => controller.chooseSubIssue(issue),
+                  labelStyle: TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    color: controller.subIssue == issue
+                        ? Theme.of(context).colorScheme.onPrimary
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+            ],
+          ),
+        ),
         const _FieldLabel('Title'),
         TextFormField(
           controller: title,
@@ -89,6 +117,46 @@ final class SubmitComplaintForm extends StatelessWidget {
           validator: (value) =>
               Validators.length(value, 'Description', 20, 3000),
         ),
+        const SizedBox(height: 8),
+        const _FieldLabel('Location (optional)'),
+        TextFormField(
+          controller: location,
+          maxLength: 120,
+          textInputAction: TextInputAction.next,
+          textCapitalization: TextCapitalization.sentences,
+          enabled: controller.state != ViewState.loading,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Lab 3, Block B',
+            prefixIcon: Icon(Icons.place_outlined),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const _FieldLabel('Priority'),
+        SegmentedButton<Priority>(
+          showSelectedIcon: false,
+          segments: [
+            for (final level in Priority.values)
+              ButtonSegment(value: level, label: Text(level.label)),
+          ],
+          selected: {controller.priority},
+          onSelectionChanged: controller.state == ViewState.loading
+              ? null
+              : (value) => controller.choosePriority(value.single),
+        ),
+        const SizedBox(height: 14),
+        SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          title: const Text(
+            'Hide my name from department staff',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: const Text('The campus super admin can still see it.'),
+          value: controller.anonymous,
+          onChanged: controller.state == ViewState.loading
+              ? null
+              : controller.setAnonymous,
+        ),
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           icon: const Icon(Icons.add_photo_alternate_outlined),
           label: Text('Add photos (${controller.photos.length}/3)'),
@@ -150,6 +218,7 @@ final class SubmitComplaintForm extends StatelessWidget {
                     category,
                     title.text.trim(),
                     description.text.trim(),
+                    location: location.text.trim(),
                   );
                 },
         ),

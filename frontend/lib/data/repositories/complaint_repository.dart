@@ -1,5 +1,6 @@
 import '../../domain/enums/complaint_category.dart';
 import '../../domain/enums/complaint_status.dart';
+import '../../domain/enums/priority.dart';
 import '../../domain/models/complaint.dart';
 import '../../domain/models/complaint_filter.dart';
 import '../../domain/models/complaint_summary.dart';
@@ -20,7 +21,20 @@ abstract interface class ComplaintRepository {
     required ComplaintCategory category,
     required String title,
     required String description,
+    String? subIssue,
+    Priority priority = Priority.medium,
+    String? location,
+    bool anonymousToStaff = false,
   });
+
+  Future<Complaint> submitFeedback({
+    required String id,
+    required int rating,
+    String? comment,
+  });
+
+  /// CSV of the complaints the caller may see, honouring [filter].
+  Future<String> exportCsv({ComplaintFilter filter = const ComplaintFilter()});
 
   Future<Complaint> updateStatus({
     required String id,

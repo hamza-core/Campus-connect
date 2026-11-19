@@ -1,9 +1,11 @@
 import '../../../core/errors/app_exception.dart';
 import '../../../domain/enums/complaint_category.dart';
 import '../../../domain/enums/complaint_status.dart';
+import '../../../domain/enums/priority.dart';
 import '../../../domain/enums/user_role.dart';
 import '../../../domain/models/app_user.dart';
 import '../../../domain/models/complaint.dart';
+import '../../../domain/models/complaint_feedback.dart';
 import '../../../domain/models/complaint_filter.dart';
 import '../../../domain/models/complaint_summary.dart';
 import '../../../domain/models/paged_result.dart';
@@ -61,6 +63,9 @@ final class MockComplaintRepository implements ComplaintRepository {
               return (filter.category == null ||
                       summary.category == filter.category) &&
                   (filter.status == null || summary.status == filter.status) &&
+                  (filter.priority == null ||
+                      summary.priority == filter.priority) &&
+                  (!filter.overdueOnly || summary.isOverdue) &&
                   [
                     summary.title,
                     summary.ticket,
@@ -147,6 +152,10 @@ final class MockComplaintRepository implements ComplaintRepository {
     required ComplaintCategory category,
     required String title,
     required String description,
+    String? subIssue,
+    Priority priority = Priority.medium,
+    String? location,
+    bool anonymousToStaff = false,
   }) async {
     final user = _auth.requiredUser;
     if (user.role != UserRole.student) throw const ForbiddenException();
@@ -172,10 +181,22 @@ final class MockComplaintRepository implements ComplaintRepository {
         department: MockSeed.departments[category]!,
         status: ComplaintStatus.pending,
         createdAt: now,
+        priority: priority,
       ),
       rowVersion: _newVersion(),
       description: cleanDescription,
-      authorName: user.name,
+      subIssue: subIssue,
+      location: location?.trim().isEmpty ?? true ? null : location!.trim(),
+      dueAt: now.add(
+        Duration(
+          hours: switch (priority) {
+            Priority.high => 24,
+            Priority.medium => 72,
+            Priority.low => 168,
+          },
+        ),
+      ),
+      authorName: anonymousToStaff ? null : user.name,
       timeline: [
         TimelineEntry(
           id: '$id-created',
@@ -245,6 +266,58 @@ final class MockComplaintRepository implements ComplaintRepository {
       ],
     );
     return record.complaint;
+  }
+
+  @override
+  Future<Complaint> submitFeedback({
+    required String id,
+    required int rating,
+    String? comment,
+  }) async {
+    final user = _auth.requiredUser;
+    if (user.role != UserRole.student) throw const ForbiddenException();
+    final record = _load(id, user);
+    final previous = record.complaint;
+    if (rating < 1 || rating > 5) {
+      throw const ValidationException('Choose a rating from 1 to 5.');
+    }
+    if (previous.summary.status != ComplaintStatus.resolved ||
+        previous.feedback != null) {
+      throw const ConflictException(
+        'Feedback needs a resolved complaint and can be sent only once.',
+      );
+    }
+    record.complaint = previous.copyWith(
+      feedback: () => ComplaintFeedback(
+        rating: rating,
+        comment: comment?.trim().isEmpty ?? true ? null : comment!.trim(),
+      ),
+    );
+    return record.complaint;
+  }
+
+  @override
+  Future<String> exportCsv({
+    ComplaintFilter filter = const ComplaintFilter(),
+  }) async {
+    final user = _auth.requiredUser;
+    if (user.role == UserRole.student) throw const ForbiddenException();
+    final page = await list(filter: filter, pageSize: 100);
+    String cell(String value) => '"${value.replaceAll('"', '""')}"';
+    final rows = [
+      'ticket,title,category,department,status,priority,createdAt',
+      for (final item in page.items)
+        [
+          item.ticket,
+          item.title,
+          item.category.apiValue,
+          item.department.name,
+          item.status.apiValue,
+          item.priority.apiValue,
+          item.createdAt.toUtc().toIso8601String(),
+        ].map(cell).join(','),
+    ];
+    return '${rows.join('\r\n')}\r\n';
   }
 
   String _newVersion() => 'demo-revision-${_revision++}';

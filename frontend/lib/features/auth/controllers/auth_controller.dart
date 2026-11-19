@@ -30,11 +30,19 @@ final class AuthController extends BaseController {
   Future<void> signIn(String email, String password) =>
       _authenticate(() => _repository.login(email: email, password: password));
 
-  Future<void> register(String name, String email, String password) =>
-      _authenticate(
-        () =>
-            _repository.register(name: name, email: email, password: password),
-      );
+  Future<void> register(
+    String name,
+    String email,
+    String password, {
+    String? studentId,
+  }) => _authenticate(
+    () => _repository.register(
+      name: name,
+      email: email,
+      password: password,
+      studentId: studentId,
+    ),
+  );
 
   Future<void> _authenticate(Future<AppUser> Function() operation) {
     final session = ++_session;

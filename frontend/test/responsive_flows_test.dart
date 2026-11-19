@@ -129,7 +129,19 @@ void main() {
         'The upstairs reading room lights no longer turn on.',
       );
       final submit = find.widgetWithText(FilledButton, 'Submit complaint');
-      await tester.ensureVisible(submit);
+      // Drop the text focus (it keeps scrolling its field into view), then scroll
+      // the form to its end so the button is reachable.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      final scrollable = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(ListView).last,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
       await tester.pumpAndSettle();
       await tester.tap(submit);
       await tester.pumpAndSettle();

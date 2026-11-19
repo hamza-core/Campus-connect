@@ -54,6 +54,7 @@ dependencies:
   signalr_netcore: ^1.4.4
   flutter_local_notifications: ^23.0.3
   flutter_foreground_task: ^11.0.3
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:

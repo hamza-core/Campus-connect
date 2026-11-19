@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/enums/complaint_category.dart';
+import '../../../domain/enums/priority.dart';
 import '../controllers/complaint_list_controller.dart';
 import 'complaint_tile.dart';
 
@@ -9,13 +10,17 @@ final class ComplaintFilters extends StatelessWidget {
     super.key,
     required this.controller,
     required this.departments,
+    this.showDepartment = true,
   });
   final ComplaintListController controller;
   final List<(String, String)> departments;
+  final bool showDepartment;
 
   int get _activeCount =>
       (controller.filter.category != null ? 1 : 0) +
-      (controller.filter.departmentId != null ? 1 : 0);
+      (showDepartment && controller.filter.departmentId != null ? 1 : 0) +
+      (controller.filter.priority != null ? 1 : 0) +
+      (controller.filter.overdueOnly ? 1 : 0);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -83,6 +88,8 @@ final class ComplaintFilters extends StatelessWidget {
                             controller.filter.copyWith(
                               category: () => null,
                               departmentId: () => null,
+                              priority: () => null,
+                              overdueOnly: false,
                             ),
                           ),
                     child: const Text('Clear all'),
@@ -177,19 +184,49 @@ final class ComplaintFilters extends StatelessWidget {
         controller.filter.copyWith(departmentId: () => value),
       ),
     );
+    final priority = _field<Priority>(
+      label: 'Priority',
+      icon: Icons.flag_outlined,
+      value: controller.filter.priority,
+      allLabel: 'Any priority',
+      options: {for (final p in Priority.values) p: p.label},
+      onChanged: (value) => controller.setFilter(
+        controller.filter.copyWith(priority: () => value),
+      ),
+    );
+    final overdue = SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      title: const Text(
+        'Overdue only',
+        style: TextStyle(fontWeight: FontWeight.w700),
+      ),
+      value: controller.filter.overdueOnly,
+      onChanged: (value) =>
+          controller.setFilter(controller.filter.copyWith(overdueOnly: value)),
+    );
     if (compact) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [category, const SizedBox(height: 16), department],
+        children: [
+          category,
+          if (showDepartment) ...[const SizedBox(height: 16), department],
+          const SizedBox(height: 16),
+          priority,
+          const SizedBox(height: 8),
+          overdue,
+        ],
       );
     }
     return Wrap(
       spacing: 14,
       runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.end,
       children: [
         SizedBox(width: 260, child: category),
-        SizedBox(width: 300, child: department),
+        if (showDepartment) SizedBox(width: 300, child: department),
+        SizedBox(width: 220, child: priority),
+        SizedBox(width: 200, child: overdue),
       ],
     );
   }

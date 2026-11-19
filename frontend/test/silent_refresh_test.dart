@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:project/data/repositories/complaint_repository.dart';
 import 'package:project/domain/enums/complaint_category.dart';
 import 'package:project/domain/enums/complaint_status.dart';
+import 'package:project/domain/enums/priority.dart';
 import 'package:project/domain/models/complaint.dart';
 import 'package:project/domain/models/complaint_filter.dart';
 import 'package:project/domain/models/complaint_summary.dart';
@@ -52,6 +53,20 @@ final class _FakeRepository implements ComplaintRepository {
     required ComplaintCategory category,
     required String title,
     required String description,
+    String? subIssue,
+    Priority priority = Priority.medium,
+    String? location,
+    bool anonymousToStaff = false,
+  }) => throw UnimplementedError();
+  @override
+  Future<Complaint> submitFeedback({
+    required String id,
+    required int rating,
+    String? comment,
+  }) => throw UnimplementedError();
+  @override
+  Future<String> exportCsv({
+    ComplaintFilter filter = const ComplaintFilter(),
   }) => throw UnimplementedError();
   @override
   Future<Complaint> updateStatus({

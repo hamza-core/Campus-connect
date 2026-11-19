@@ -2,6 +2,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../domain/models/dashboard_stats.dart';
 import '../../../domain/models/department_stat.dart';
+import '../../../domain/models/recurring_issue.dart';
 import '../../../domain/models/status_stat.dart';
 import '../../../domain/models/trend_point.dart';
 import '../dashboard_repository.dart';
@@ -53,6 +54,16 @@ final class RemoteDashboardRepository implements DashboardRepository {
     return List.unmodifiable(
       (response['data'] as List).cast<Map<String, Object?>>().map(
         TrendPoint.fromJson,
+      ),
+    );
+  }
+
+  @override
+  Future<List<RecurringIssue>> recurring() async {
+    final response = await _api.request('GET', ApiEndpoints.analyticsRecurring);
+    return List.unmodifiable(
+      (response['data'] as List).cast<Map<String, Object?>>().map(
+        RecurringIssue.fromJson,
       ),
     );
   }
