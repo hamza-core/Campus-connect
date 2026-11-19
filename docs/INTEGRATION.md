@@ -60,11 +60,17 @@ Put the base URL in **build-time config** (e.g. `--dart-define=API_BASE_URL=…`
 
 Roles: students calling `/analytics/*` or admin routes get 403 — don't show those screens.
 
-## 5. Complaint images (Cloudinary, signed by the server)
+## 5. Complaint images (Amazon S3, presigned by the server)
 
-1. `POST /uploads/sign` `{ contentType: "image/jpeg"|"image/png"|"image/webp", fileSize }` → `{ data: { uploadUrl, fields, publicUrl, maxFileSize } }` (student only).
-2. Upload **directly to `uploadUrl`**: `multipart/form-data` containing every key/value in `fields` **plus** the file under the field name `file`. Do not add the `Authorization` header to this request.
-3. Put the returned `publicUrl` in `imageUrls` on `POST /complaints` (max 3, ≤ 5 MB each). The server rejects URLs from any other source.
+1. `POST /uploads/sign` `{ contentType: "image/jpeg"|"image/png"|"image/webp", fileSize }` → `{ data: { uploadUrl, method: "PUT", headers, fields: {}, publicUrl, maxFileSize } }` (student only; 503 if the server has no bucket configured).
+2. **PUT the raw image bytes** (not multipart) to `uploadUrl` with exactly the returned `headers` (`Content-Type` must equal the declared type or S3 rejects the signature). Do **not** send an `Authorization` header to S3. The URL expires after 5 minutes. Expect HTTP 200 from S3.
+3. Put the returned `publicUrl` in `imageUrls` on `POST /complaints` (max 3, ≤ 5 MB each). The server checks the object exists, its size and type, and that it is in the caller's own folder; anything else → 422.
+
+```ts
+const { data } = await api<{ data: Sign }>('/uploads/sign', { method: 'POST', body: JSON.stringify({ contentType: file.type, fileSize: file.size }) });
+await fetch(data.uploadUrl, { method: data.method, headers: data.headers, body: file });   // no auth header
+imageUrls.push(data.publicUrl);
+```
 
 ## 6. Status changes without losing data
 

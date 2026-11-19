@@ -9,7 +9,7 @@
 **Additive**
 - Error code `RATE_LIMITED` and 429 on login/register
 - `GET /health` may return 503 `{ status: "unavailable" }`
-- `/uploads/sign`: optional `fileSize`, response `maxFileSize`; `imageUrls` must come from the submitting user's Cloudinary upload
+- `/uploads/sign` now returns an **Amazon S3 presigned PUT** (replaces Cloudinary): response `{ uploadUrl, method: "PUT", headers, fields: {}, publicUrl, maxFileSize }`, optional request `fileSize`; `imageUrls` must be the submitting user's own S3 objects (verified with HeadObject). Clients upload with PUT + the returned headers instead of multipart
 - Support endpoints marked `deprecated` (deferred, always 403 — issue #4)
 - Production server entry (`http://13.53.165.254/api/v1`)
 

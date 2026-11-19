@@ -11,12 +11,12 @@ You are the **backend engineer** for **CampusConnect** (Smart Campus Complaint &
 
 ## Stack (implemented)
 
-ASP.NET Core (**.NET 10**, minimal APIs) · **EF Core 10 + SQL Server** · JWT bearer (`sub`, `role`; HS256, 7 days) · bcrypt · rate limiting on `/auth/*` · optional SignalR hub `/hubs/notifications` · Cloudinary signed uploads · xUnit integration tests (SQL Server) + OpenAPI contract tests.
+ASP.NET Core (**.NET 10**, minimal APIs) · **EF Core 10 + SQL Server** · JWT bearer (`sub`, `role`; HS256, 7 days) · bcrypt · rate limiting on `/auth/*` · optional SignalR hub `/hubs/notifications` · Amazon S3 presigned PUT uploads (AWSSDK.S3, default credential chain / EC2 instance role) · xUnit integration tests (SQL Server) + OpenAPI contract tests.
 Hosting: **AWS EC2 (Ubuntu) + Nginx → Kestrel on `127.0.0.1`**, **RDS for SQL Server**. See `docs/DEPLOYMENT.md`.
 
 ## Configuration (env vars; never commit values)
 
-`ConnectionStrings__DefaultConnection` (required — no fallback) · `JWT_SECRET` (≥32 bytes) · `ASPNETCORE_URLS` · `ASPNETCORE_ENVIRONMENT` · `CORS_ORIGINS` (explicit origins; only matters for a web client) · `TRUSTED_PROXIES` (default `127.0.0.1,::1`) · `CLOUDINARY_CLOUD_NAME|API_KEY|API_SECRET` · `SEED_PASSWORD` (only with `--seed`) · `Auth__PermitLimit` (default 20/min).
+`ConnectionStrings__DefaultConnection` (required — no fallback) · `JWT_SECRET` (≥32 bytes) · `ASPNETCORE_URLS` · `ASPNETCORE_ENVIRONMENT` · `CORS_ORIGINS` (explicit origins; only matters for a web client) · `TRUSTED_PROXIES` (default `127.0.0.1,::1`) · `AWS_S3_BUCKET` · `AWS_REGION` (credentials via EC2 instance role; locally `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`) · `SEED_PASSWORD` (only with `--seed`) · `Auth__PermitLimit` (default 20/min).
 CLI flags: `--migrate` (apply migrations), `--seed` (demo data; requires `SEED_PASSWORD`).
 
 ## Non-negotiables (graded)

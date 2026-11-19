@@ -128,7 +128,10 @@ paths:
   /uploads/sign:
     post:
       tags: [Complaints]
-      summary: Get a signed upload (Cloudinary) for a complaint image. Student only.
+      summary: |
+        Get a presigned Amazon S3 PUT URL for one complaint image. Student only.
+        PUT the raw bytes to `uploadUrl` with exactly the returned `headers` (Content-Type is part of the signature), then send `publicUrl` in imageUrls.
+        503 when the upload service is not configured.
       requestBody:
         required: true
         content:
@@ -594,10 +597,12 @@ components:
 
     SignedUpload:
       type: object
-      required: [uploadUrl, fields, publicUrl]
+      required: [uploadUrl, method, headers, fields, publicUrl]
       properties:
         uploadUrl: { type: string, format: uri }
-        fields: { type: object, additionalProperties: { type: string } }
+        method: { type: string, enum: [PUT], description: HTTP method to use for the upload }
+        headers: { type: object, additionalProperties: { type: string }, description: "Headers the upload request MUST send (Content-Type)" }
+        fields: { type: object, additionalProperties: { type: string }, description: "Always empty for S3 (kept for compatibility)" }
         publicUrl: { type: string, format: uri, description: Value to send back in CreateComplaintRequest.imageUrls }
         maxFileSize: { type: integer, example: 5242880 }
 
@@ -615,8 +620,9 @@ components:
           type: array
           maxItems: 3
           description: |
-            Only URLs returned by /uploads/sign for the SUBMITTING user (configured Cloudinary cloud and the
-            user's own folder) are accepted. Other URLs -> 422.
+            Only URLs returned by /uploads/sign for the SUBMITTING user (configured S3 bucket and the
+            user's own campusconnect/{userId}/ prefix) are accepted. The object must exist, be 1 B - 5 MiB and match its
+            content type. Other URLs -> 422.
           items: { type: string, format: uri }
         anonymousToStaff:
           type: boolean

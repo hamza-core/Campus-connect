@@ -11,7 +11,7 @@ Region **eu-north-1**. EC2 `api-server` (t3.micro, Ubuntu) + Nginx → Kestrel; 
 | 3 | **Listen address** | `ASPNETCORE_URLS=http://localhost:5000` and Nginx `proxy_pass http://127.0.0.1:5000` | Must match |
 | 4 | **Environment** | `ASPNETCORE_ENVIRONMENT=Production` | |
 | 5 | **Trusted proxy** | `TRUSTED_PROXIES` (optional) | Default `127.0.0.1,::1` is correct when Nginx is on the same host. Without it all clients share one rate-limit bucket |
-| 6 | **Cloudinary** (image upload) | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Free account at cloudinary.com → Dashboard. Without them `/uploads/sign` returns 500; everything else works |
+| 6 | **S3 bucket for images** | `AWS_S3_BUCKET`, `AWS_REGION=eu-north-1` in `/etc/api.env`, plus the bucket and an **IAM role on the EC2 instance** (see "S3 bucket" section below) | No keys are stored: the SDK uses the instance role. Without a bucket `/uploads/sign` returns 503; everything else works |
 | 7 | **Demo seed password** | `SEED_PASSWORD` (only when you run `--seed`) | 8–72 chars. Share privately with judges/teammates. Remove from the env file afterwards |
 | 8 | **CORS** (only if you add a web build) | `CORS_ORIGINS=https://your-web-origin` | Explicit origins, no `*`. Native apps don't need it |
 | 9 | **Rate limit** (optional) | `Auth__PermitLimit=60` | Default 20/min per client IP; raise for a demo on shared Wi-Fi |
@@ -31,9 +31,8 @@ ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://localhost:5000
 ConnectionStrings__DefaultConnection=Server=<rds-endpoint>,1433;Database=CampusConnect;User Id=admin;Password='<PASSWORD>';Encrypt=True;TrustServerCertificate=True
 JWT_SECRET=<48 random bytes, base64>
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+AWS_S3_BUCKET=<your-bucket-name>
+AWS_REGION=eu-north-1
 # only while seeding:
 # SEED_PASSWORD=
 ```
@@ -54,6 +53,15 @@ CLOUDINARY_API_SECRET=
 6. **Server:** Nginx site on port 80 → `http://127.0.0.1:5000` with headers `Host $host`, `X-Forwarded-For $remote_addr`, `X-Forwarded-Proto $scheme`, `client_max_body_size 6m`, WebSocket upgrade lines for SignalR; `sudo nginx -t && sudo systemctl restart nginx`.
 7. **Verify:** `curl http://<ip>/api/v1/health` → `{"status":"ok"}`; `curl http://<ip>/api/v1/meta/categories`.
 8. **Update later:** repeat 1–2, then `sudo systemctl restart api` (run `--migrate` first if the PR has a new migration; keep migrations backward-compatible).
+
+## S3 bucket for complaint images (one-time, AWS console)
+
+1. **Create bucket** in `eu-north-1`, name without dots (e.g. `campusconnect-images-<random>`). Keep ACLs disabled.
+2. **Public read for images only:** uncheck "Block public access" for *bucket policies* only, then add a policy allowing `s3:GetObject` for `Principal: *` on `arn:aws:s3:::BUCKET/campusconnect/*`. (Images are shown to staff by URL; keys contain a random 32-hex name.)
+3. **IAM role for EC2:** IAM → Roles → Create role → AWS service → EC2, attach an inline policy allowing `s3:PutObject` and `s3:GetObject` on `arn:aws:s3:::BUCKET/campusconnect/*`. EC2 → `api-server` → Actions → Security → Modify IAM role → attach it. Restart the API (`sudo systemctl restart api`).
+4. Set `AWS_S3_BUCKET` and `AWS_REGION` in `/etc/api.env`.
+5. Test: sign in as a student, `POST /api/v1/uploads/sign`, then `curl -X PUT -H 'Content-Type: image/jpeg' --data-binary @photo.jpg "<uploadUrl>"` should return 200, and `publicUrl` should open the image.
+6. Optional: a lifecycle rule to delete objects under `campusconnect/` older than N days if you don't need long retention.
 
 ## D. APK distribution
 

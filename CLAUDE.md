@@ -20,7 +20,7 @@ The frontend is an **app distributed as an Android APK** (Firebase App Distribut
 - Role comes from `GET /auth/me` / the login response (`STUDENT`, `DEPT_ADMIN`, `SUPER_ADMIN`) — route by role, but **never rely on the UI for security**; every call can return 403, render a 403 screen.
 - Status changes (DEPT_ADMIN only): `PATCH /complaints/{id}/status` with `{ status, remark?, rowVersion }`. Always send the `rowVersion` from your last read. On **409** reload the complaint and tell the user it changed. Use `allowedTransitions` from the detail response to render actions. **SUPER_ADMIN is read-only** — show no action buttons for it.
 - Remark required for `REJECTED` and `RESOLVED` (422 otherwise).
-- Create complaint: send `category` (never a department). Images: `POST /uploads/sign` → upload to the returned `uploadUrl` with `fields` → send returned `publicUrl`s in `imageUrls` (max 3, ≤5 MB, jpeg/png/webp).
+- Create complaint: send `category` (never a department). Images: `POST /uploads/sign` → **PUT** the raw bytes to the returned `uploadUrl` with the returned `headers` (no auth header) → send returned `publicUrl`s in `imageUrls` (max 3, ≤5 MB, jpeg/png/webp).
 - Notifications: poll `GET /notifications` every 30 s while the app is foregrounded.
 - 429 on login/register → show "too many attempts, wait a minute".
 - Don't build UI for "me too" support (deferred).
