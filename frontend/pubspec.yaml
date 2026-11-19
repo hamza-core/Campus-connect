@@ -52,6 +52,8 @@ dependencies:
   sembast_web: ^2.4.7
   path_provider: ^2.1.6
   signalr_netcore: ^1.4.4
+  flutter_local_notifications: ^23.0.3
+  flutter_foreground_task: ^11.0.3
 
 dev_dependencies:
   flutter_test:
