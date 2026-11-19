@@ -35,15 +35,16 @@ final class ComplaintCategoryCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(28),
           onTap: onTap,
-          child: SizedBox(
-            height: 190,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 170),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   IllustrationImage(filename: filename, size: 84),
+                  const SizedBox(height: 18),
                   Text(
                     item.label,
                     style: Theme.of(context).textTheme.titleLarge
