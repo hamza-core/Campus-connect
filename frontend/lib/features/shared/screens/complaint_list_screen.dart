@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/auto_refresh.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../di/app_scope.dart';
 import '../../../domain/enums/complaint_status.dart';
@@ -28,7 +31,10 @@ final class ComplaintListScreen extends StatefulWidget {
   State<ComplaintListScreen> createState() => _ComplaintListScreenState();
 }
 
-final class _ComplaintListScreenState extends State<ComplaintListScreen> {
+final class _ComplaintListScreenState extends State<ComplaintListScreen>
+    with WidgetsBindingObserver {
+  Timer? _autoRefresh;
+  Listenable? _live;
   ComplaintListController? _controller;
   final _scroll = ScrollController();
   final _search = TextEditingController();
@@ -39,6 +45,11 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _autoRefresh = Timer.periodic(
+      autoRefreshInterval,
+      (_) => _checkForUpdates(),
+    );
     _scroll.addListener(() {
       if (_scroll.position.extentAfter < 320 &&
           _controller?.pageError == null) {
@@ -57,6 +68,10 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
       department: widget.department,
     );
     _controller!.refresh();
+    if (widget.student) {
+      // A live notification means one of my complaints just changed.
+      _live = dependencies.notifications..addListener(_checkForUpdates);
+    }
     if (widget.superAdmin) {
       dependencies.dashboard
           .byDepartment()
@@ -103,8 +118,26 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
     if (mounted && widget.student) await _loadCounts();
   }
 
+  /// Quietly picks up new complaints and status changes. Skipped while the
+  /// user is reading further down the list, so nothing jumps under their finger.
+  void _checkForUpdates() {
+    if (!mounted) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    if (_scroll.hasClients && _scroll.offset > 120) return;
+    _controller?.silentRefresh();
+    if (widget.student) _loadCounts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkForUpdates();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRefresh?.cancel();
+    _live?.removeListener(_checkForUpdates);
     _scroll.dispose();
     _search.dispose();
     _controller?.dispose();

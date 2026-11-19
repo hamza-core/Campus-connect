@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/controllers/base_controller.dart';
+import '../../../core/utils/auto_refresh.dart';
 import '../../../core/widgets/entrance_motion.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/hero_header.dart';
@@ -22,18 +25,46 @@ final class StudentDashboardScreen extends StatefulWidget {
   State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
 }
 
-final class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
+final class _StudentDashboardScreenState extends State<StudentDashboardScreen>
+    with WidgetsBindingObserver {
   StudentDashboardController? _controller;
+  Timer? _autoRefresh;
+  Listenable? _live;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _autoRefresh = Timer.periodic(
+      autoRefreshInterval,
+      (_) => _checkForUpdates(),
+    );
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controller ??= StudentDashboardController(AppScope.of(context).complaints)
       ..load();
+    _live ??= AppScope.of(context).notifications..addListener(_checkForUpdates);
+  }
+
+  void _checkForUpdates() {
+    if (!mounted) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    _controller?.refreshSilently();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkForUpdates();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRefresh?.cancel();
+    _live?.removeListener(_checkForUpdates);
     _controller?.dispose();
     super.dispose();
   }

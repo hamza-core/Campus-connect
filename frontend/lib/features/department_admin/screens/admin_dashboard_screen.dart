@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/controllers/base_controller.dart';
+import '../../../core/utils/auto_refresh.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/hero_header.dart';
 import '../../../core/widgets/shimmer_list.dart';
@@ -28,40 +31,78 @@ final class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
+    with WidgetsBindingObserver {
   AdminDashboardController? _controller;
-  Future<List<DepartmentStat>>? _departments;
-  Future<List<StatusStat>>? _byStatus;
-  Future<List<TrendPoint>>? _trend;
+  Timer? _autoRefresh;
+  List<DepartmentStat>? _departments;
+  List<StatusStat>? _byStatus;
+  List<TrendPoint>? _trend;
+  bool _chartsFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _autoRefresh = Timer.periodic(
+      autoRefreshInterval,
+      (_) => _checkForUpdates(),
+    );
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller ??= AdminDashboardController(AppScope.of(context).dashboard)
-      ..load();
-    if (widget.showChart) {
-      _departments ??= AppScope.of(context).dashboard.byDepartment();
+    if (_controller == null) {
+      _controller = AdminDashboardController(AppScope.of(context).dashboard)
+        ..load();
+      _loadCharts();
     }
+  }
+
+  /// Fetches all charts together and swaps them in only when they arrive, so
+  /// refreshing never flashes a loading placeholder over data already shown.
+  Future<void> _loadCharts() async {
     final dashboard = AppScope.of(context).dashboard;
-    _byStatus ??= dashboard.byStatus();
-    _trend ??= dashboard.trend();
+    try {
+      final status = await dashboard.byStatus();
+      final trend = await dashboard.trend();
+      final departments = widget.showChart
+          ? await dashboard.byDepartment()
+          : null;
+      if (!mounted) return;
+      setState(() {
+        _byStatus = status;
+        _trend = trend;
+        _departments = departments;
+        _chartsFailed = false;
+      });
+    } on Object {
+      if (mounted && _byStatus == null) setState(() => _chartsFailed = true);
+    }
+  }
+
+  void _checkForUpdates() {
+    if (!mounted) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    _controller?.refreshSilently();
+    _loadCharts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkForUpdates();
   }
 
   Future<void> _refresh() async {
-    final dashboard = AppScope.of(context).dashboard;
-    setState(() {
-      _byStatus = dashboard.byStatus();
-      _trend = dashboard.trend();
-    });
-    if (widget.showChart) {
-      final request = AppScope.of(context).dashboard.byDepartment();
-      setState(() => _departments = request);
-    }
-    await _controller!.load();
+    setState(() => _chartsFailed = false);
+    await Future.wait([_controller!.load(), _loadCharts()]);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRefresh?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -200,57 +241,21 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                FutureBuilder<List<StatusStat>>(
-                  future: _byStatus,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const ShimmerList();
-                    }
-                    if (snapshot.hasError) {
-                      return ErrorView(
-                        message: 'Could not load the status chart.',
-                        onRetry: _refresh,
-                      );
-                    }
-                    return StatusDonutChart(stats: snapshot.data ?? const []);
-                  },
-                ),
-                const SizedBox(height: 16),
-                FutureBuilder<List<TrendPoint>>(
-                  future: _trend,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const ShimmerList();
-                    }
-                    if (snapshot.hasError) {
-                      return ErrorView(
-                        message: 'Could not load the trend chart.',
-                        onRetry: _refresh,
-                      );
-                    }
-                    return TrendLineChart(points: snapshot.data ?? const []);
-                  },
-                ),
-                if (widget.showChart) ...[
+                if (_chartsFailed && _byStatus == null)
+                  ErrorView(
+                    message: 'Could not load the charts.',
+                    onRetry: _refresh,
+                  )
+                else if (_byStatus == null || _trend == null)
+                  const ShimmerList()
+                else ...[
+                  StatusDonutChart(stats: _byStatus!),
                   const SizedBox(height: 16),
-                  FutureBuilder<List<DepartmentStat>>(
-                    future: _departments,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const ShimmerList();
-                      }
-                      if (snapshot.hasError) {
-                        return ErrorView(
-                          message:
-                              'Could not load department complaint counts.',
-                          onRetry: _refresh,
-                        );
-                      }
-                      return DepartmentComplaintChart(
-                        departments: snapshot.data ?? const [],
-                      );
-                    },
-                  ),
+                  TrendLineChart(points: _trend!),
+                  if (widget.showChart && _departments != null) ...[
+                    const SizedBox(height: 16),
+                    DepartmentComplaintChart(departments: _departments!),
+                  ],
                 ],
               ],
             ),

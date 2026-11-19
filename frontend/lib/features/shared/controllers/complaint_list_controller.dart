@@ -101,6 +101,35 @@ final class ComplaintListController extends BaseController {
     );
   }
 
+  /// Quietly re-checks the first page without showing a loading state. The
+  /// list only changes when something actually changed (new complaint, new
+  /// status), so it never flickers.
+  Future<void> silentRefresh() async {
+    if (state == ViewState.loading || loadingMore) return;
+    final generation = _generation;
+    final key = _key;
+    try {
+      _departmentPages.clear();
+      final result = await _listPage(1);
+      if (generation != _generation || key != _key || loadingMore) return;
+      final next = result.items;
+      final unchanged =
+          items.length >= next.length &&
+          [
+            for (var i = 0; i < next.length; i++)
+              items[i].id == next[i].id && items[i].status == next[i].status,
+          ].every((same) => same);
+      if (unchanged) return;
+      items = next;
+      _page = result.page;
+      hasMore = result.hasNextPage;
+      _cache[key] = (items, _page, hasMore);
+      safeNotify();
+    } on Object {
+      // Silent: the next tick or a manual pull will retry.
+    }
+  }
+
   Future<void> loadMore() async {
     if (loadingMore || !hasMore || state != ViewState.success) return;
     final generation = _generation;
