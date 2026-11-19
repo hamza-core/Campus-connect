@@ -223,8 +223,8 @@ GET {{baseUrl}}/admin/complaints/export.csv?category=LIBRARY&sort=newest
 Authorization: Bearer {{departmentLogin.response.body.$.token}}
 Accept: text/csv
 
-### Signed image upload — 200 when CLOUDINARY_* are configured, otherwise 500
-# Upload bytes directly to the returned uploadUrl with its fields plus multipart file.
+### Presigned S3 upload — 200 when AWS_S3_BUCKET/AWS_REGION are configured, otherwise 503
+# PUT the raw image bytes to the returned uploadUrl with the returned headers (Content-Type must match exactly).
 # Then pass the returned publicUrl in a new complaint's imageUrls array.
 # @name signUpload
 POST {{baseUrl}}/uploads/sign

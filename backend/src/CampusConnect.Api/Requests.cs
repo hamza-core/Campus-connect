@@ -24,7 +24,7 @@ public record StatusRequest(
 public record CommentRequest([property: Required, StringLength(2000, MinimumLength = 1)] string Body);
 public record FeedbackRequest([property: Range(1, 5)] int Rating, [property: StringLength(500)] string? Comment);
 public record UploadRequest([property: Required, RegularExpression("^image/(jpeg|png|webp)$")] string ContentType,
-    [property: Range(1, CloudinaryUploads.MaxBytes)] long? FileSize = null);
+    [property: Range(1, S3Uploads.MaxBytes)] long? FileSize = null);
 
 public class ValidationFilter : IEndpointFilter
 {

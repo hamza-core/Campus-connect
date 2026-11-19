@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CampusConnect.Api;
-public class ComplaintService(AppDb db, CurrentUser current, IHubContext<NotificationHub> hub, ILogger<ComplaintService> log, CloudinaryUploads uploads, TimeProvider clock)
+public class ComplaintService(AppDb db, CurrentUser current, IHubContext<NotificationHub> hub, ILogger<ComplaintService> log, S3Uploads uploads, TimeProvider clock)
 {
     public IQueryable<Complaint> Full => db.Complaints.Include(x => x.Author).Include(x => x.Department)
         .Include(x => x.Supports).Include(x => x.Feedback).Include(x => x.Timeline).ThenInclude(x => x.Actor).AsSplitQuery();

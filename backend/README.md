@@ -32,19 +32,19 @@ Demo emails: super@campusconnect.edu, cafeteria@campusconnect.edu, library@campu
 
 CampusConnect.http uses direct named-response references. Run the logins, createComplaint and departmentDetail first. After status/comment changes, refreshBeforeResolution supplies a new version. Its password comes from the SEED_PASSWORD process variable: launch the editor from that configured shell or use a private local HTTP environment. Response-dependent global aliases cause HTTP0012 before their source request has run and are deliberately avoided.
 
-## Cloudinary uploads
+## S3 image uploads
 
-Cloudinary remains the direct image provider; S3 is not required. Supply CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET. /uploads/sign validates JPEG/PNG/WebP contentType and optional fileSize (1–5242880 bytes). It signs allowed_formats and an account-specific campusconnect/{userId}/ public ID. Send every returned field during the direct upload. maxFileSize=5242880 is a client hint, not a provider-enforced signed parameter.
+Images go straight from the client to Amazon S3; the API never handles file bytes. Configure `AWS_S3_BUCKET` (no dots in the name) and `AWS_REGION`. Credentials come from the default AWS chain: on EC2 attach an **IAM instance role**; locally set `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`. The role needs `s3:PutObject` and `s3:GetObject` on `arn:aws:s3:::BUCKET/campusconnect/*`.
 
-Complaint image URLs must be HTTPS on res.cloudinary.com, within the configured cloud's image/upload namespace and the submitting user's application folder. Foreign clouds/hosts, fetch transformations, embedded credentials, query strings and arbitrary folders are rejected. Before attachment the API checks the real public ID, format and byte count (1–5 MiB) through the Cloudinary Admin API using server credentials. Verification errors fail closed; no untrusted URL is fetched.
+`POST /uploads/sign` (students only) validates `contentType` (JPEG/PNG/WebP) and optional `fileSize` (1–5242880) and returns a 5-minute presigned **PUT** URL for `campusconnect/{userId}/{guid}.{ext}`, plus `method: "PUT"`, `headers` (send `Content-Type` exactly as declared; it is part of the signature), an empty `fields` object, `publicUrl` and `maxFileSize`.
 
-Cloudinary does not document a max_file_size upload parameter; current preset documentation explicitly says presets have no per-preset size cap. No invented parameter is signed here. Actual complaint attachment size is enforced by resource verification. A larger file may still reach Cloudinary storage before rejection: a strict pre-storage 5 MiB cap requires a different upload architecture/provider capability and is not claimed. Real Cloudinary uploads remain a deployment smoke test.
+Complaint image URLs must be HTTPS on `{bucket}.s3.{region}.amazonaws.com`, under the submitting user's `campusconnect/{userId}/` prefix, with a 32-hex name and a jpg/png/webp extension. Foreign hosts or buckets, other users' folders, query strings and embedded credentials are rejected without calling S3. Before attachment the API calls `HeadObject` to verify the object exists, is 1 byte–5 MiB and that its stored content type matches the extension. Storage errors fail closed (503).
 
-Sources: [Upload API](https://cloudinary.com/documentation/image_upload_api_reference), [upload preset limitations](https://cloudinary.com/documentation/upload_presets).
+S3 cannot cap the size of a presigned PUT, so an oversize or never-attached file can exist in the bucket until you clean it up. The API refuses such files at attachment. Bucket setup: block public ACLs; allow public **read** only for `campusconnect/*` through a bucket policy (images are displayed by URL); enable CORS for `PUT` only if you add a web client (native apps are unaffected).
 
 ## EC2, Nginx and SQL Server/RDS
 
-Install the ASP.NET Core 10 runtime on EC2 and keep SQL Server separate. Use a private environment file (chmod 600) containing JWT_SECRET (at least 32 bytes), ConnectionStrings__DefaultConnection, CORS_ORIGINS, TRUSTED_PROXIES and Cloudinary credentials. Use SQL authentication and a trusted SQL Server certificate with Encrypt=true; TrustServerCertificate=true is a deliberate local/demo exception. Restrict database port 1433 to the EC2 security group.
+Install the ASP.NET Core 10 runtime on EC2 and keep SQL Server separate. Use a private environment file (chmod 600) containing JWT_SECRET (at least 32 bytes), ConnectionStrings__DefaultConnection, CORS_ORIGINS, TRUSTED_PROXIES and S3 settings (AWS_S3_BUCKET, AWS_REGION). Use SQL authentication and a trusted SQL Server certificate with Encrypt=true; TrustServerCertificate=true is a deliberate local/demo exception. Restrict database port 1433 to the EC2 security group.
 
 Publish: dotnet publish src/CampusConnect.Api -c Release -o publish. Apply migrations once as a release step: dotnet CampusConnect.Api.dll --migrate. Then start with ASPNETCORE_URLS=http://127.0.0.1:5080. Example systemd/Nginx files are in deploy/; adapt paths/domain/certificates and validate with nginx -t before installing. Configure HTTPS for Android/browser clients.
 

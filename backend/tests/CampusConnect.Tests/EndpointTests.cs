@@ -10,26 +10,22 @@ namespace CampusConnect.Tests;
 public class EndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     [Theory]
-    [InlineData("image/jpeg")]
-    [InlineData("image/png")]
-    [InlineData("image/webp")]
-    public async Task Upload_signing_returns_verifiable_Cloudinary_fields(string contentType)
+    [InlineData("image/jpeg", "jpg")]
+    [InlineData("image/png", "png")]
+    [InlineData("image/webp", "webp")]
+    public async Task Upload_signing_returns_a_presigned_S3_PUT_for_the_callers_folder(string contentType, string extension)
     {
         using var student = await factory.Login("student");
-        var response = await student.PostAsJsonAsync("/api/v1/uploads/sign", new { contentType });
+        var response = await student.PostAsJsonAsync("/api/v1/uploads/sign", new { contentType, fileSize = 1024 });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var data = (await response.Content.ReadFromJsonAsync<JsonObject>())!["data"]!;
-        Assert.Equal("https://api.cloudinary.com/v1_1/test-cloud/image/upload", data["uploadUrl"]!.GetValue<string>());
-        var fields = data["fields"]!; var id = fields["public_id"]!.GetValue<string>(); var timestamp = fields["timestamp"]!.GetValue<string>();
-        Assert.StartsWith("campusconnect/user-student/", id);
-        Assert.Equal(contentType == "image/jpeg" ? "jpg" : contentType[6..], fields["allowed_formats"]!.GetValue<string>());
+        var uploadUrl = data["uploadUrl"]!.GetValue<string>(); var publicUrl = data["publicUrl"]!.GetValue<string>();
+        Assert.Equal("PUT", data["method"]!.GetValue<string>());
+        Assert.Equal(contentType, data["headers"]!["Content-Type"]!.GetValue<string>());
+        Assert.Matches($@"^https://test-bucket\.s3\.eu-north-1\.amazonaws\.com/campusconnect/user-student/[0-9a-f]{{32}}\.{extension}$", publicUrl);
+        Assert.StartsWith(publicUrl, uploadUrl);
         Assert.Equal(5242880, data["maxFileSize"]!.GetValue<int>());
-        Assert.Equal("test-public-key", fields["api_key"]!.GetValue<string>());
-        Assert.Equal("false", fields["overwrite"]!.GetValue<string>());
-        var expected = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes($"allowed_formats={fields["allowed_formats"]!.GetValue<string>()}&overwrite=false&public_id={id}&timestamp={timestamp}test-signing-secret")));
-        Assert.Equal(expected, fields["signature"]!.GetValue<string>());
-        Assert.Equal($"https://res.cloudinary.com/test-cloud/image/upload/{id}", data["publicUrl"]!.GetValue<string>());
-        Assert.DoesNotContain("test-signing-secret", data.ToJsonString());
+        Assert.Empty(data["fields"]!.AsObject());
     }
     [Fact]
     public async Task Upload_signing_rejects_invalid_formats_and_administrators()
@@ -43,7 +39,7 @@ public class EndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
     {
         using var unconfigured = factory.WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["CLOUDINARY_CLOUD_NAME"] = "", ["CLOUDINARY_API_KEY"] = "", ["CLOUDINARY_API_SECRET"] = ""
+            ["AWS_S3_BUCKET"] = "", ["AWS_REGION"] = ""
         })));
         using var client = unconfigured.CreateClient();
         using var authenticated = await factory.Login("student"); client.DefaultRequestHeaders.Authorization = authenticated.DefaultRequestHeaders.Authorization;

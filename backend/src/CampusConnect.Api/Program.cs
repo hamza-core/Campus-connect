@@ -18,7 +18,8 @@ string SigningSecret()
 }
 builder.Services.AddSingleton(_ => new JwtSettings(SigningSecret()));
 builder.Services.AddDbContext<AppDb>(o => o.UseSqlServer(DatabaseConfiguration.RequireConnection(builder.Configuration)));
-builder.Services.AddHttpClient<CloudinaryUploads>(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddSingleton<IObjectStore, S3ObjectStore>();
+builder.Services.AddScoped<S3Uploads>();
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

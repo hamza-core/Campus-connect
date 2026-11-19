@@ -36,7 +36,7 @@ public static class ComplaintEndpoints
             var u = await current.Get(); await db.Notifications.Where(x => x.UserId == u.Id && !x.Read).ExecuteUpdateAsync(s => s.SetProperty(x => x.Read, true));
             return Results.NoContent();
         });
-        api.MapPost("/uploads/sign", async (UploadRequest r, CurrentUser current, CloudinaryUploads uploads) =>
+        api.MapPost("/uploads/sign", async (UploadRequest r, CurrentUser current, S3Uploads uploads) =>
             Results.Ok(new { data = uploads.Sign(r, await current.Get()) })).RequireAuthorization(p => p.RequireRole(Roles.Student));
         api.MapGet("/admin/complaints/export.csv", async (CurrentUser current, ComplaintService s, HttpRequest r) =>
         {

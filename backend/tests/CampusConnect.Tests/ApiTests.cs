@@ -24,14 +24,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureServices(services => services.AddSingleton<CampusConnect.Api.IObjectStore>(new FakeStore(1024, "image/jpeg")));
         builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["JWT_SECRET"] = "integration-tests-only-secret-with-at-least-32-bytes",
             ["ConnectionStrings:DefaultConnection"] = Connection,
             ["Auth:PermitLimit"] = "1000",
-            ["CLOUDINARY_CLOUD_NAME"] = "test-cloud",
-            ["CLOUDINARY_API_KEY"] = "test-public-key",
-            ["CLOUDINARY_API_SECRET"] = "test-signing-secret",
+            ["AWS_S3_BUCKET"] = "test-bucket",
+            ["AWS_REGION"] = "eu-north-1",
             ["Logging:LogLevel:Default"] = "Warning"
         }));
     }
