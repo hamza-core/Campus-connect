@@ -4,6 +4,8 @@ import '../../../domain/enums/user_role.dart';
 import '../../../domain/models/app_user.dart';
 import '../../../domain/models/dashboard_stats.dart';
 import '../../../domain/models/department_stat.dart';
+import '../../../domain/models/status_stat.dart';
+import '../../../domain/models/trend_point.dart';
 import '../../mock_data/mock_seed.dart';
 import '../dashboard_repository.dart';
 import 'mock_auth_repository.dart';
@@ -35,6 +37,42 @@ final class MockDashboardRepository implements DashboardRepository {
       rejected: count(ComplaintStatus.rejected),
       overdue: items.where((item) => item.isOverdue).length,
     );
+  }
+
+  @override
+  Future<List<StatusStat>> byStatus() async {
+    final items = _complaints.visibleTo(_admin).toList();
+    return [
+      for (final status in ComplaintStatus.values)
+        StatusStat(
+          status: status,
+          count: items.where((item) => item.summary.status == status).length,
+        ),
+    ];
+  }
+
+  @override
+  Future<List<TrendPoint>> trend({int days = 14}) async {
+    final items = _complaints.visibleTo(_admin).toList();
+    final today = DateTime.now();
+    final start = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(Duration(days: days - 1));
+    return [
+      for (var i = 0; i < days; i++)
+        TrendPoint(
+          date: start.add(Duration(days: i)),
+          count: items.where((item) {
+            final created = item.summary.createdAt.toLocal();
+            final day = start.add(Duration(days: i));
+            return created.year == day.year &&
+                created.month == day.month &&
+                created.day == day.day;
+          }).length,
+        ),
+    ];
   }
 
   @override

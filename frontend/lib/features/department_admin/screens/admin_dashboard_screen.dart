@@ -6,6 +6,9 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/shimmer_list.dart';
 import '../../../di/app_scope.dart';
 import '../../../domain/models/department_stat.dart';
+import '../../../domain/models/status_stat.dart';
+import '../../../domain/models/trend_point.dart';
+import '../../shared/widgets/dashboard_charts.dart';
 import '../../super_admin/widgets/department_complaint_chart.dart';
 import '../controllers/admin_dashboard_controller.dart';
 
@@ -27,6 +30,8 @@ final class AdminDashboardScreen extends StatefulWidget {
 final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   AdminDashboardController? _controller;
   Future<List<DepartmentStat>>? _departments;
+  Future<List<StatusStat>>? _byStatus;
+  Future<List<TrendPoint>>? _trend;
 
   @override
   void didChangeDependencies() {
@@ -36,9 +41,17 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (widget.showChart) {
       _departments ??= AppScope.of(context).dashboard.byDepartment();
     }
+    final dashboard = AppScope.of(context).dashboard;
+    _byStatus ??= dashboard.byStatus();
+    _trend ??= dashboard.trend();
   }
 
   Future<void> _refresh() async {
+    final dashboard = AppScope.of(context).dashboard;
+    setState(() {
+      _byStatus = dashboard.byStatus();
+      _trend = dashboard.trend();
+    });
     if (widget.showChart) {
       final request = AppScope.of(context).dashboard.byDepartment();
       setState(() => _departments = request);
@@ -152,6 +165,38 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   );
                 },
               );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<StatusStat>>(
+            future: _byStatus,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const ShimmerList();
+              }
+              if (snapshot.hasError) {
+                return ErrorView(
+                  message: 'Could not load the status chart.',
+                  onRetry: _refresh,
+                );
+              }
+              return StatusDonutChart(stats: snapshot.data ?? const []);
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<TrendPoint>>(
+            future: _trend,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const ShimmerList();
+              }
+              if (snapshot.hasError) {
+                return ErrorView(
+                  message: 'Could not load the trend chart.',
+                  onRetry: _refresh,
+                );
+              }
+              return TrendLineChart(points: snapshot.data ?? const []);
             },
           ),
           if (widget.showChart) ...[
