@@ -1,3 +1,4 @@
+using CampusConnect.Api.Chat;
 using System.Text;
 using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -36,6 +37,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ComplaintService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddChat(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSignalR();
 builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
@@ -81,6 +83,8 @@ builder.Services.AddRateLimiter(o =>
 {
     o.AddPolicy("auth", c => RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("Auth:PermitLimit", 20), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy("chat", c => RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("Chat:PermitLimit", 20), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     o.OnRejected = async (c, ct) =>
     {
         c.HttpContext.Response.StatusCode = 429;
@@ -134,6 +138,7 @@ auth.MapPost("/login", async (LoginRequest request, AuthService service) => Resu
 auth.MapGet("/me", async (CurrentUser user) => Results.Ok(new { data = Views.User(await user.Get()) })).RequireAuthorization();
 app.MapComplaintEndpoints();
 app.MapAnalyticsEndpoints();
+app.MapChatEndpoints();
 app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
 if (args.Contains("--migrate") || args.Contains("--seed"))
 {

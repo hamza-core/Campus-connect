@@ -24,3 +24,6 @@ Stack and hosting are documented in `docs/ARCHITECTURE.md` (.NET 10 / SQL Server
 
 ## 1.0.0
 Initial contract.
+
+## 1.3.0 — AI assistant
+- Added `POST /chat` (retrieval-augmented assistant, additive). See `docs/CHATBOT.md`.

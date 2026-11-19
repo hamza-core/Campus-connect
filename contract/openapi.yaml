@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.2.1
+  version: 1.3.0
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
     Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
@@ -29,6 +29,7 @@ tags:
   - name: Admin
   - name: Analytics
   - name: Meta
+  - name: Assistant
 
 paths:
   /health:
@@ -331,6 +332,61 @@ paths:
       summary: Mark all my notifications read
       responses:
         "204": { description: Done }
+
+  /chat:
+    post:
+      tags: [Assistant]
+      summary: |
+        Ask the CampusConnect assistant (retrieval-augmented). Answers come from the
+        knowledge files plus the caller's own recent complaints (students only).
+        `mode` is `ai` when the language model answered, `retrieval` when no model key
+        is configured or the model failed (the best matching note is returned instead).
+        Rate limited per client (429 RATE_LIMITED).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string, minLength: 1, maxLength: 1000 }
+                history:
+                  type: array
+                  maxItems: 20
+                  description: Previous turns, oldest first. Only the last 6 are used.
+                  items:
+                    type: object
+                    required: [role, text]
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      text: { type: string }
+      responses:
+        "200":
+          description: Answer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [answer, sources, mode]
+                    properties:
+                      answer: { type: string }
+                      mode: { type: string, enum: [ai, retrieval] }
+                      sources:
+                        type: array
+                        items:
+                          type: object
+                          required: [title, snippet]
+                          properties:
+                            title: { type: string }
+                            snippet: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /analytics/summary:
     get:

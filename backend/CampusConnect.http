@@ -187,6 +187,14 @@ Authorization: Bearer {{studentLogin.response.body.$.token}}
 POST {{baseUrl}}/notifications/read-all
 Authorization: Bearer {{studentLogin.response.body.$.token}}
 
+### Ask the assistant — 200; answers from the knowledge files (mode "ai" with ANTHROPIC_API_KEY, otherwise "retrieval")
+# @name askAssistant
+POST {{baseUrl}}/chat
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{ "message": "How long until my complaint gets a response?", "history": [] }
+
 ### System summary — 200; super administrator
 # @name systemSummary
 GET {{baseUrl}}/analytics/summary
