@@ -1,5 +1,8 @@
 # Contract Changelog
 
+## 1.2.0 — image upload removed (owner decision: no storage provider for now)
+**Breaking:** `POST /uploads/sign` is removed. `imageUrls` on `POST /complaints` is deprecated: accepted but ignored; responses always return `imageUrls: []`. The mobile app keeps attached images on the device and does not send them. A storage provider (S3/Cloudinary) can be added later via a `contract/` PR.
+
 ## 1.1.0 — aligns the spec with the implemented backend (PR #3, `backend/contracts/PR3_REVIEW.md`)
 **Breaking vs 1.0.0**
 - `PATCH /complaints/{id}/status` requires `rowVersion` (UUID); missing → 422, stale → 409
@@ -9,7 +12,7 @@
 **Additive**
 - Error code `RATE_LIMITED` and 429 on login/register
 - `GET /health` may return 503 `{ status: "unavailable" }`
-- `/uploads/sign` now returns an **Amazon S3 presigned PUT** (replaces Cloudinary): response `{ uploadUrl, method: "PUT", headers, fields: {}, publicUrl, maxFileSize }`, optional request `fileSize`; `imageUrls` must be the submitting user's own S3 objects (verified with HeadObject). Clients upload with PUT + the returned headers instead of multipart
+- (`/uploads/sign` was briefly specified here; it was removed again in 1.2.0.)
 - Support endpoints marked `deprecated` (deferred, always 403 — issue #4)
 - Production server entry (`http://13.53.165.254/api/v1`)
 

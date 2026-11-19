@@ -32,19 +32,13 @@ Demo emails: super@campusconnect.edu, cafeteria@campusconnect.edu, library@campu
 
 CampusConnect.http uses direct named-response references. Run the logins, createComplaint and departmentDetail first. After status/comment changes, refreshBeforeResolution supplies a new version. Its password comes from the SEED_PASSWORD process variable: launch the editor from that configured shell or use a private local HTTP environment. Response-dependent global aliases cause HTTP0012 before their source request has run and are deliberately avoided.
 
-## Cloudinary uploads
+## Images
 
-Cloudinary remains the direct image provider; S3 is not required. Supply CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET. /uploads/sign validates JPEG/PNG/WebP contentType and optional fileSize (1–5242880 bytes). It signs allowed_formats and an account-specific campusconnect/{userId}/ public ID. Send every returned field during the direct upload. maxFileSize=5242880 is a client hint, not a provider-enforced signed parameter.
-
-Complaint image URLs must be HTTPS on res.cloudinary.com, within the configured cloud's image/upload namespace and the submitting user's application folder. Foreign clouds/hosts, fetch transformations, embedded credentials, query strings and arbitrary folders are rejected. Before attachment the API checks the real public ID, format and byte count (1–5 MiB) through the Cloudinary Admin API using server credentials. Verification errors fail closed; no untrusted URL is fetched.
-
-Cloudinary does not document a max_file_size upload parameter; current preset documentation explicitly says presets have no per-preset size cap. No invented parameter is signed here. Actual complaint attachment size is enforced by resource verification. A larger file may still reach Cloudinary storage before rejection: a strict pre-storage 5 MiB cap requires a different upload architecture/provider capability and is not claimed. Real Cloudinary uploads remain a deployment smoke test.
-
-Sources: [Upload API](https://cloudinary.com/documentation/image_upload_api_reference), [upload preset limitations](https://cloudinary.com/documentation/upload_presets).
+Server-side image upload is **not implemented for now** (no `/uploads/sign`, no external storage). The app keeps attached images on the device. `imageUrls` is still accepted on `POST /complaints` for compatibility but is ignored and always returned as `[]`. A storage provider can be added later through a `contract/` change.
 
 ## EC2, Nginx and SQL Server/RDS
 
-Install the ASP.NET Core 10 runtime on EC2 and keep SQL Server separate. Use a private environment file (chmod 600) containing JWT_SECRET (at least 32 bytes), ConnectionStrings__DefaultConnection, CORS_ORIGINS, TRUSTED_PROXIES and Cloudinary credentials. Use SQL authentication and a trusted SQL Server certificate with Encrypt=true; TrustServerCertificate=true is a deliberate local/demo exception. Restrict database port 1433 to the EC2 security group.
+Install the ASP.NET Core 10 runtime on EC2 and keep SQL Server separate. Use a private environment file (chmod 600) containing JWT_SECRET (at least 32 bytes), ConnectionStrings__DefaultConnection, CORS_ORIGINS, TRUSTED_PROXIES . Use SQL authentication and a trusted SQL Server certificate with Encrypt=true; TrustServerCertificate=true is a deliberate local/demo exception. Restrict database port 1433 to the EC2 security group.
 
 Publish: dotnet publish src/CampusConnect.Api -c Release -o publish. Apply migrations once as a release step: dotnet CampusConnect.Api.dll --migrate. Then start with ASPNETCORE_URLS=http://127.0.0.1:5080. Example systemd/Nginx files are in deploy/; adapt paths/domain/certificates and validate with nginx -t before installing. Configure HTTPS for Android/browser clients.
 

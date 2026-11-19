@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CampusConnect.Api;
-public class ComplaintService(AppDb db, CurrentUser current, IHubContext<NotificationHub> hub, ILogger<ComplaintService> log, CloudinaryUploads uploads, TimeProvider clock)
+public class ComplaintService(AppDb db, CurrentUser current, IHubContext<NotificationHub> hub, ILogger<ComplaintService> log, TimeProvider clock)
 {
     public IQueryable<Complaint> Full => db.Complaints.Include(x => x.Author).Include(x => x.Department)
         .Include(x => x.Supports).Include(x => x.Feedback).Include(x => x.Timeline).ThenInclude(x => x.Actor).AsSplitQuery();
@@ -16,7 +16,6 @@ public class ComplaintService(AppDb db, CurrentUser current, IHubContext<Notific
     public async Task<object> Create(CreateComplaintRequest r)
     {
         var user = await current.Get(); Scope.Student(user);
-        await uploads.Validate(r.ImageUrls ?? [], user);
         var category = Catalog.Categories.Single(x => x.Key == r.Category);
         var department = await db.Departments.SingleAsync(x => x.Slug == category.Slug);
         for (var attempt = 0; ; attempt++)
@@ -33,7 +32,7 @@ public class ComplaintService(AppDb db, CurrentUser current, IHubContext<Notific
                 {
                     Sequence = counter.Value, Ticket = $"CC-{now.Year}-{counter.Value:D4}", Author = user, Department = department,
                     Category = r.Category, Title = r.Title.Trim(), Description = r.Description.Trim(), Priority = r.Priority ?? "MEDIUM",
-                    SubIssue = r.SubIssue, Location = r.Location, ImageUrls = r.ImageUrls ?? [], AnonymousToStaff = r.AnonymousToStaff,
+                    SubIssue = r.SubIssue, Location = r.Location, ImageUrls = [], // images are kept on the device for now; any submitted imageUrls are ignored, AnonymousToStaff = r.AnonymousToStaff,
                     CreatedAt = now, UpdatedAt = now, DueAt = Catalog.Due(now, r.Priority ?? "MEDIUM")
                 };
                 c.Timeline.Add(new TimelineEntry { Actor = user, Type = "CREATED", ToStatus = "PENDING", CreatedAt = now });

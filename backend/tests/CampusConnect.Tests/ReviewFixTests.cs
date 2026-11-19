@@ -123,14 +123,13 @@ public class ReviewFixTests(ApiFactory factory) : IClassFixture<ApiFactory>
         finally { await Seed.Run(db, factory.SeedPassword); }
     }
     [Fact]
-    public async Task Complaint_api_rejects_external_image_urls_before_persisting()
+    public async Task Complaint_api_ignores_submitted_image_urls_because_images_stay_on_the_device()
     {
         using var student = await factory.Login("student");
-        await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var before = await db.Complaints.CountAsync();
-        var response = await student.PostAsJsonAsync("/api/v1/complaints", new { category = "LIBRARY", title = "External image rejected", description = "Reject a complaint with a foreign image host.", imageUrls = new[] { "https://evil.example/image.jpg" } });
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        Assert.Equal(before, await db.Complaints.CountAsync());
+        var response = await student.PostAsJsonAsync("/api/v1/complaints", new { category = "LIBRARY", title = "Image urls ignored", description = "Submitted image URLs are not stored.", imageUrls = new[] { "https://evil.example/image.jpg" } });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var data = (await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["data"]!;
+        Assert.Empty(data["imageUrls"]!.AsArray());
     }
     private sealed class FixedClock : TimeProvider
     {
