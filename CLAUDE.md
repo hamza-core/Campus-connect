@@ -1,47 +1,42 @@
-# CLAUDE.md — Claude: frontend
+# CLAUDE.md — Claude: frontend (Flutter app)
 
-You are the **frontend engineer** for **CampusConnect** (Smart Campus Complaint & Feedback Management System; competition app, deployed by 3:00 PM). Codex owns the backend (already implemented, ASP.NET Core). The owner (human) is the integrator.
+You are the **frontend engineer** for **CampusConnect** (Smart Campus Complaint & Feedback Management System). Codex owns the backend (ASP.NET Core, deployed). The owner (human) is the integrator.
 
-**Read first, every session:** `CONTRACT.md` → `contract/openapi.yaml` → `docs/INTEGRATION.md` → top of `docs/HANDOFF.md`. Requirements: `docs/CampusConnect_Competition_Problem_Statement.pdf`.
+**Read first, every session:** `CONTRACT.md` → `contract/openapi.yaml` → `docs/INTEGRATION.md` → `frontend/README.md` → top of `docs/HANDOFF.md`. Requirements: `docs/CampusConnect_Competition_Problem_Statement.pdf`; status: `docs/REQUIREMENTS_COVERAGE.md`.
 
 ## Territory
+- You edit **only `frontend/**`** (and append to `docs/HANDOFF.md`). Never `backend/**`.
+- API change needed → a `contract/` PR or a handoff to Codex; update `docs/INTEGRATION.md` in the same change as the app.
 
-- You edit **only `frontend/**`** (and append to `docs/HANDOFF.md`).
-- You never edit `backend/**`. API change needed → `contract/` PR or a handoff to Codex.
-- Don't hand-write API types where generation is possible (generate from `contract/openapi.yaml`).
+## Stack (implemented — don't re-litigate)
+Flutter 3.47 / Dart 3.13, Android. `go_router` (role guard), `ChangeNotifier` controllers on `BaseController`, repositories with `remote/` and `mock/` implementations (`AppDependencies` + `AppScope`), `http`, `signalr_netcore` (live notifications), `flutter_local_notifications` + `flutter_foreground_task` (popups while minimized, Android only), `flutter_secure_storage` (saved login), `sembast` (device-only photos), `image_picker`, `fl_chart`, `share_plus` (CSV), `intl`, `shimmer`. Config: `--dart-define=API_BASE_URL=…` (required) or `USE_MOCK=true`.
 
-## Stack
+## Commands (from `frontend/`)
+```
+flutter pub get
+flutter analyze && flutter test            # 37 tests, no network needed (mock repositories)
+flutter run --dart-define=API_BASE_URL=http://13.53.165.254/api/v1
+flutter build apk --release --dart-define=API_BASE_URL=http://13.53.165.254/api/v1
+```
+CI (`frontend-apk.yml`) runs analyze → test → build and uploads artifact `campusconnect-apk`. Always run analyze + test locally before pushing.
 
-The frontend is an **app distributed as an Android APK** (Firebase App Distribution or Google Drive). The framework is whatever already exists in `frontend/` — **inspect it first and follow its conventions**; if the folder is empty, ask the owner before choosing. Whatever the framework, it must: keep the access token in memory or secure storage (never logs), centralise HTTP in one client module, read the API base URL from build-time config, and handle 401/403/409/422/429 uniformly.
-
-## API integration rules (see `docs/INTEGRATION.md` for details and code)
-
-- Base URL `…/api/v1`; send `Authorization: Bearer <token>`. Success is `{ data }`, errors are `{ error: { code, message, fields? } }`.
-- Role comes from `GET /auth/me` / the login response (`STUDENT`, `DEPT_ADMIN`, `SUPER_ADMIN`) — route by role, but **never rely on the UI for security**; every call can return 403, render a 403 screen.
-- Status changes (DEPT_ADMIN only): `PATCH /complaints/{id}/status` with `{ status, remark?, rowVersion }`. Always send the `rowVersion` from your last read. On **409** reload the complaint and tell the user it changed. Use `allowedTransitions` from the detail response to render actions. **SUPER_ADMIN is read-only** — show no action buttons for it.
-- Remark required for `REJECTED` and `RESOLVED` (422 otherwise).
-- Create complaint: send `category` (never a department). Images: **no upload endpoint** — keep attached photos on the device (max 3), never send `imageUrls` (ignored); tell the user photos are saved on this device only.
-- Notifications: poll `GET /notifications` every 30 s while the app is foregrounded.
-- 429 on login/register → show "too many attempts, wait a minute".
-- Don't build UI for "me too" support (deferred).
-
-## Screens
-
-**MVP:** Login/Register (students only; admins are provisioned) · Student: Submit (category cards with the PDF's example issues as chips, title, description, priority, location, images), My complaints (status filter), Complaint detail + timeline/remarks · Dept admin: Inbox (own department), Detail with status actions + remark box, Dept dashboard · Super admin: All complaints (search + filters category/department/status), Dashboard with **bar chart by department** + status breakdown, read-only detail · 403 and 404 screens.
-**Stretch:** notification bell, resolution rating, trend line, recurring-issues panel, CSV export (share sheet), overdue badge, dark mode.
-
-## Quality rules
-
-Every list has loading/empty/error states. Status colours: PENDING amber · IN_PROGRESS blue · RESOLVED green · REJECTED red, with icon + label. Accessible labels, tap targets ≥ 44 px. No secrets in the app. Keep files small and typed.
+## Rules that matter
+- **Authorization is never frontend-only.** Hide by role for UX, but any call can return `403` → access-denied screen. Roles come from the server.
+- Status changes (department admin only) send the `rowVersion` last read; `409` reloads. Buttons come from `allowedTransitions`. **Super admin is read-only.** A remark is required for `RESOLVED`/`REJECTED`.
+- Create complaint sends `category` (never a department). **No image upload** — photos stay on the device; never send `imageUrls`.
+- Lists/dashboards refresh quietly every 10 s (`core/utils/auto_refresh.dart`), on resume, and on a live notification — no loading flicker, skipped while scrolled down. Don't reintroduce full-screen spinners on refresh.
+- Realtime is for the owning student only; the REST list stays authoritative (merge by `id`, reload after reconnect). Android popups go through `BackgroundAlerts` (no-op in tests/mock/web).
+- Every list handles loading, empty and error states; status colours: Pending amber · In progress blue · Resolved green · Rejected red (icon/label too). Tap targets ≥ 44 px; labels on inputs.
+- Style: app font `Inter` must be set on any custom `TextStyle` used in button/chip themes; borders `#CFC9B8` 1.5 px; primary `#004741`; cream surfaces. Reuse `HeroHeader`, `FloatingPillNav`, `StatusBadge`, `PriorityBadge`, `ClayCard`.
+- No secrets in the app; no `any`; keep files small; no unused packages (several are still listed — remove, don't add more).
+- Tests: widget tests that scroll a pushed page should target the topmost `ListView` (`find.byType(ListView).last`) and drop text focus first.
 
 ## Workflow
+Branch `fe/<feature>`; Conventional Commits `feat(fe): …`; one-side-only PRs into `main`. CI must be green. Append milestones to `docs/HANDOFF.md`.
 
-Branch `fe/<feature>`; commits `feat(fe): …`; one-side-only PRs. Before a PR: lint/analyze, tests, build all green. Release: build the APK with the production API URL, upload to Firebase App Distribution or Drive, record the link in `frontend/DEMO.md`.
-
-## Demo checklist
-
-- [ ] Log in as each seeded role; each sees only its scope
-- [ ] Library admin opening a Lab/IT complaint → clean 403 screen
+## Release / demo checklist
+- [ ] APK from CI installs and signs in as each role; Library admin → Lab complaint = 403 screen
 - [ ] Status change with remark works; stale edit shows the conflict message
-- [ ] Charts render with seeded data
-- [ ] APK installs and talks to the deployed API
+- [ ] Banner + system popup when the owner's complaint changes (allow notifications; battery Unrestricted)
+- [ ] Super admin dashboard shows the department bar chart; CSV export opens the share sheet
+- [ ] `GET /api/v1/health` = 200 and SignalR negotiate = 200

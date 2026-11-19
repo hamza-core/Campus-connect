@@ -5,31 +5,37 @@ Baseline (owner decision, issue #1): **ASP.NET Core 10 · EF Core · SQL Server 
 ## System
 
 ```
- Mobile app (APK)                 AWS eu-north-1
- ┌──────────────┐  HTTP(S)   ┌──────────────────────────────┐
- │ Bearer token │───────────►│ Nginx :80/:443               │
- └──────┬───────┘            │   └► Kestrel 127.0.0.1:5000  │──► RDS SQL Server
-        │                    │      ASP.NET Core 10 API     │    (private, 1433 from EC2 SG only)
-        │ signed upload      └──────────────────────────────┘
+ Android app (Flutter)             AWS eu-north-1
+ ┌────────────────────┐  HTTP    ┌────────────────────────────────┐
+ │ go_router, ChangeN.│─────────►│ Nginx :80 → Kestrel 127.0.0.1:5000 │──► RDS SQL Server
+ │ JWT (memory+Keystore)│ WebSocket│  ASP.NET Core 10 API            │    (private; 1433 from EC2 SG only)
+ │ sembast (photos)   │◄────────►│  /api/v1/*  +  /hubs/notifications │
+ │ foreground service │  SignalR └────────────────────────────────┘
+ │ + local notifications│
+ └────────────────────┘
+ APK distribution: GitHub Actions artifact → adb / Drive / Firebase App Distribution
 ```
 
 ## Decisions
 
 | # | Decision | Why |
 |---|---|---|
-| 1 | Monorepo: `backend/`, `frontend/`, `contract/`, `docs/` | One history; shared contract |
-| 2 | Contract-first (`contract/openapi.yaml` v1.1.0) | Frontend builds against a mock while the backend finishes; contract tests catch drift |
-| 3 | ASP.NET Core minimal APIs + EF Core + SQL Server | Owner baseline; maps to RDS; typed, fast to ship |
-| 4 | EC2 + Nginx + RDS | Required AWS hosting; Nginx terminates TLS; DB private |
-| 5 | JWT bearer (7 days) | Simple for a native app; refresh-token flow is a later, all-or-nothing increment |
+| 1 | Monorepo: `backend/`, `frontend/`, `contract/`, `docs/` | One history; contract shared by both agents |
+| 2 | Contract-first OpenAPI (v1.2.1) + hub rules in `CONTRACT.md` | App built against a mock while the API finished; contract tests catch drift |
+| 3 | ASP.NET Core minimal APIs + EF Core + SQL Server | Owner baseline; maps to RDS |
+| 4 | EC2 + Nginx + RDS | Required AWS hosting; DB private |
+| 5 | JWT bearer, 7 days; kept in Android Keystore | Simple for a native app; remembered login. Refresh-token flow deferred (must ship complete or not at all) |
 | 6 | One scope function for all complaint queries | Provable RBAC; out-of-scope → 403 |
-| 7 | Department derived from category on the server | PDF §4.2 automatic routing; no client spoofing |
-| 8 | `rowVersion` optimistic concurrency on status change | Two admins can't silently overwrite each other |
-| 9 | SUPER_ADMIN read-only | Least privilege: only the owning department resolves complaints |
-| 10 | Admins seeded; password from `SEED_PASSWORD` env | PDF needs no admin signup; repo is public, no committed secrets |
-| 11 | No server-side image storage for now; the app keeps photos on the device | No storage provider available; `imageUrls` is ignored; revisit later via a contract change |
-| 12 | Notifications via REST polling (30 s); SignalR optional | REST is authoritative; real-time is a bonus |
-| 13 | Forwarded headers trusted only from `TRUSTED_PROXIES` | Correct per-client rate limiting behind Nginx without allowing spoofing |
+| 7 | Department derived from category on the server | Automatic routing; no client spoofing |
+| 8 | `rowVersion` optimistic concurrency on status change | Two admins can't overwrite each other |
+| 9 | Super admin read-only | Least privilege |
+| 10 | Admins seeded; password from `SEED_PASSWORD` | Public repo, no committed secrets |
+| 11 | No server-side image storage; photos stay on the device | No storage provider available (S3/Cloudinary dropped); `imageUrls` ignored |
+| 12 | **Hybrid freshness**: SignalR for the owning student, 10 s polling for lists/dashboards | Push to admins needs a backend event (planned); polling is robust and cheap at this scale |
+| 13 | **Android system popups** via foreground service + local notifications | Delivers alerts while minimized without Firebase/FCM accounts; costs a persistent low-priority notification and OEM battery settings |
+| 14 | Forwarded headers trusted only from `TRUSTED_PROXIES` | Correct per-client rate limiting behind Nginx |
+| 15 | Flutter with plain `ChangeNotifier` controllers + repositories (remote/mock) | Small, testable, no extra state package; the mock repo powers tests and demo mode |
+| 16 | CI builds the APK (analyze → test → build) | Mac toolchain was unreliable; every build is reproducible |
 
 ## Workflow
 
@@ -45,6 +51,8 @@ Only the owning department's `DEPT_ADMIN` transitions; `SUPER_ADMIN` and student
 `Department(id, name, slug)` · `User(id, name, email, passwordHash, role, studentId?, departmentId?)` · `Complaint(id, ticket, authorId, departmentId, category, subIssue?, title, description, status, priority, location?, imageUrls[], anonymousToStaff, dueAt, resolvedAt?, version)` · `TimelineEntry` · `Support` (deferred) · `Feedback` · `Notification` · `TicketCounter(year)`. Indexes on `(DepartmentId, Status)`, `AuthorId`, `Category`, `CreatedAt`.
 
 ## Features beyond the PDF
+
+(Implemented in app and backend: ticket numbers, audit timeline, priority + overdue flag, anonymous-to-staff, ratings, notifications, CSV export, recurring-issue analytics, status donut and trend charts, auto-refresh, remembered login.)
 
 Ticket numbers (`CC-2026-0042`), audit timeline, priority + SLA overdue flag, anonymous-to-staff option, resolution rating, notifications (polling/SignalR), CSV export (formula-safe), recurring-issues analytics, trend chart, concurrency control. **Deferred:** "me too" support (#4), refresh tokens, email/SMS.
 

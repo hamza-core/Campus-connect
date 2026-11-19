@@ -1,113 +1,87 @@
 # Frontend integration guide
 
-For the frontend (Claude / the owner's app). The API is implemented (ASP.NET Core, `/api/v1`). Source of truth: `contract/openapi.yaml`.
+For the app (Flutter, `frontend/`) and anyone building another client. API: ASP.NET Core, base `/api/v1`. Source of truth: `contract/openapi.yaml` (v1.2.1). The realtime hub is documented here and in `CONTRACT.md` (OpenAPI cannot describe it).
 
 ## 1. Connection settings
 
 | Setting | Value |
 |---|---|
-| Production base URL | `http://13.53.165.254/api/v1` (HTTP until a domain + certificate exist; the IP changes if the instance stops unless an Elastic IP is attached) |
-| Local backend | `http://localhost:4000/api/v1` · Android emulator → host: `http://10.0.2.2:4000/api/v1` |
-| Mock server | `npx @stoplight/prism-cli mock contract/openapi.yaml -p 4010` → `http://localhost:4010/api/v1` |
-| Health check | `GET /health` → `{ "status": "ok" }` (503 = database down) |
+| Production API | `http://13.53.165.254/api/v1` (HTTP only until a domain + certificate exist; IP changes on restart unless an Elastic IP is attached) |
+| Realtime hub | `http://13.53.165.254/hubs/notifications` (note: **not** under `/api/v1`) |
+| Health | `GET /api/v1/health` → `{ "status": "ok" }` (503 when the database is down) |
+| Local API | `http://localhost:4000/api/v1` · Android emulator → host `http://10.0.2.2:4000/api/v1` |
+| Mock server | `npx @stoplight/prism-cli mock contract/openapi.yaml -p 4010` |
 
-Put the base URL in **build-time config** (e.g. `--dart-define=API_BASE_URL=…`, `.env` for Expo/Vite, a Gradle `buildConfigField`) — never hard-code it in feature code.
-
-**Android + HTTP:** release builds block cleartext traffic. For the demo over the raw IP, allow it explicitly (`android:usesCleartextTraffic="true"` in `AndroidManifest.xml`, or a network-security-config limited to that host). Remove it once Nginx serves HTTPS (needs a domain; certbot).
-**CORS** only matters if you also run a web build; a native app is unaffected. Web origins must be listed in the server's `CORS_ORIGINS`.
+The Flutter app reads `--dart-define=API_BASE_URL=…` (no trailing slash). **Android + HTTP:** release builds block cleartext traffic, so `AndroidManifest.xml` sets `android:usesCleartextTraffic="true"` for the demo — remove it once HTTPS is available. CORS only matters for a web client (origins must be in the server's `CORS_ORIGINS`).
 
 ## 2. Request/response rules
 
-- Header: `Authorization: Bearer <token>`; `Content-Type: application/json`.
-- Success: `{ "data": … }`; lists: `{ "data": […], "page", "pageSize", "total" }`. **Login/register return `{ "token", "user" }` (no `data` wrapper).**
-- Errors: `{ "error": { "code", "message", "fields?" } }`, `fields` = `{ fieldName: message }` for 422.
+- `Authorization: Bearer <token>`; JSON bodies.
+- Success `{ "data": … }`; lists add `page`, `pageSize`, `total`. **Login/register return `{ "token", "user" }` with no `data` wrapper** (the app also accepts the wrapped form).
+- Errors `{ "error": { "code", "message", "fields?" } }`.
 
 | Status | `code` | UI reaction |
 |---|---|---|
-| 401 | `UNAUTHORIZED` | Clear session → login screen (on login itself: "Invalid email or password") |
-| 403 | `FORBIDDEN` | Show the 403 screen ("You don't have access") — do not retry |
-| 404 | `NOT_FOUND` | 404 screen |
-| 409 | `CONFLICT` / `INVALID_TRANSITION` | Reload the complaint; message "This complaint changed, please review" |
-| 422 | `VALIDATION_FAILED` | Show `fields` under the matching inputs |
-| 429 | `RATE_LIMITED` | "Too many attempts. Wait a minute." |
-| 5xx | `INTERNAL` | Generic retry message |
+| 401 | `UNAUTHORIZED` | Clear the session → login ("Invalid email or password" on login itself) |
+| 403 | `FORBIDDEN` | Access-denied screen; never retry |
+| 404 | `NOT_FOUND` | Not-found screen |
+| 409 | `CONFLICT` / `INVALID_TRANSITION` | Reload the complaint; "This complaint changed" |
+| 422 | `VALIDATION_FAILED` | Show `fields` |
+| 429 | `RATE_LIMITED` | "Too many attempts, wait a minute" |
 
-## 3. Auth flow
+## 3. Auth
 
 1. `POST /auth/login` `{ email, password }` → `{ token, user }`. Students can `POST /auth/register` `{ name, email, password, studentId? }` (password 8–72 bytes). Admins are seeded, never registered.
-2. Keep `token` in memory; persist in secure storage if "stay signed in" is needed (Keychain/Keystore, not plain preferences). Token lifetime is 7 days; no refresh endpoint yet.
-3. On app start, if a token exists call `GET /auth/me` → `{ data: user }`; 401 → login.
-4. `user.role` drives navigation: `STUDENT` → student shell; `DEPT_ADMIN` → department shell (`user.department` = its department); `SUPER_ADMIN` → global read-only shell.
+2. Token lifetime is 7 days (no refresh endpoint). The app keeps it in memory **and** in the device's secure storage (Android Keystore) so the session survives restarts; it is cleared on logout or `401`.
+3. On start: if a saved token exists call `GET /auth/me` → `{ data: user }`; `401` → login.
+4. `user.role` (`STUDENT`, `DEPT_ADMIN`, `SUPER_ADMIN`) drives navigation; `user.department` is set for department admins.
 
-## 4. Endpoint map (what each screen calls)
+## 4. Endpoint map
 
 | Screen | Call |
 |---|---|
-| Category picker | `GET /meta/categories` → `[{ key, label, description, subIssues[], department }]` (cache it) |
-| Submit complaint | `POST /complaints` `{ category, subIssue?, title (5–120), description (10–3000), priority?, location?, imageUrls? (≤3), anonymousToStaff? }` → 201 `{ data: complaint }`. **Never send a department.** |
-| My / inbox / all lists | `GET /complaints?status=&category=&departmentId=&priority=&overdue=&q=&sort=&page=&pageSize=` — the server scopes by role (student: own, dept admin: own dept, super admin: all) |
-| Complaint detail | `GET /complaints/{id}` → `{ data: complaint + timeline[], feedback, allowedTransitions[] }` |
-| Change status (DEPT_ADMIN) | `PATCH /complaints/{id}/status` `{ status, remark?, rowVersion }` → 200 `{ data: detail }` |
-| Add remark (DEPT_ADMIN) | `POST /complaints/{id}/comments` `{ body }` |
-| Rate resolution (student) | `POST /complaints/{id}/feedback` `{ rating 1–5, comment? }` (once, only when RESOLVED) |
-| Notifications | `GET /notifications?unreadOnly=` → `{ data, unreadCount }`, poll every 30 s · `POST /notifications/read-all` → 204 |
-| KPI cards (admins) | `GET /analytics/summary` → `{ total, pending, inProgress, resolved, rejected, overdue, … }` |
-| Bar chart | `GET /analytics/by-department` → `[{ department, count }]` |
-| Status chart | `GET /analytics/by-status` → `[{ status, count }]` |
-| Trend / recurring | `GET /analytics/trend?days=14`, `GET /analytics/recurring` |
-| CSV export (admins) | `GET /admin/complaints/export.csv` (same filters) |
-| Image upload | see §5 |
+| Submit | `POST /complaints` `{ category, title (5–120), description (10–3000), subIssue?, priority? (LOW\|MEDIUM\|HIGH), location? (≤120), anonymousToStaff?, imageUrls? (ignored) }` → 201. **Never send a department.** |
+| Lists | `GET /complaints?status=&category=&departmentId=&priority=&overdue=true&q=&sort=&page=&pageSize=` — scoped by role on the server |
+| Detail | `GET /complaints/{id}` → complaint + `timeline[]`, `feedback`, `allowedTransitions[]`, `rowVersion`, `dueAt`, `isOverdue`, `location`, `subIssue` |
+| Status (dept admin) | `PATCH /complaints/{id}/status` `{ status, remark?, rowVersion }` |
+| Remark (dept admin) | `POST /complaints/{id}/comments` `{ body }` |
+| Rating (owner, resolved, once) | `POST /complaints/{id}/feedback` `{ rating 1–5, comment? }` → complaint detail |
+| Notifications | `GET /notifications` → `{ data, unreadCount }` · `POST /notifications/read-all` → 204 |
+| Dashboard | `GET /analytics/summary` (counts, `overdue`, `avgResolutionHours`, `avgRating`), `/analytics/by-department`, `/by-status`, `/trend?days=14`, `/recurring` |
+| Export (admins) | `GET /admin/complaints/export.csv` (same filters) → `text/csv` |
 
-Roles: students calling `/analytics/*` or admin routes get 403 — don't show those screens.
+Role rules: students get `403` on `/analytics/*` and admin routes; department admins only see their own department; the super admin is read-only (`403` on status/remarks).
 
-## 5. Complaint images — kept on the device for now
+## 5. Realtime notifications (SignalR)
 
-The server has **no image storage and no upload endpoint**. Do not call `/uploads/sign` (removed). Let the user attach up to 3 photos when submitting, keep them **locally** (app storage, keyed by the complaint `id`/`ticket` returned by `POST /complaints`), and show them from there on that device. Do **not** send `imageUrls` (it is ignored; responses always return `[]`). Staff on other devices will not see the photos — say so in the UI ("Photos are saved on this device only"). Storage on a server will be added later through a contract change.
+- Endpoint `/hubs/notifications` (ASP.NET Core SignalR, JSON protocol). Authenticate with the same JWT: WebSocket clients pass it as the `access_token` **query** parameter (negotiate also accepts the `Authorization` header). Unauthenticated → `401`.
+- The server pushes to the **complaint owner only**. Event name `notification`, one argument `{ id, message, complaintId, read, createdAt }` (camelCase). The REST list stays authoritative: load it first, then merge live events by `id` (ignore duplicates), and reload after a reconnect.
+- Nginx must forward WebSocket upgrade headers (`Upgrade`, `Connection`) — configured in `docs/DEPLOYMENT.md`.
 
-## 6. Status changes without losing data
+Flutter specifics: `signalr_netcore` (WebSockets only, automatic reconnect), `NotificationController` (`features/notifications/`), `BackgroundAlerts` (`core/platform/`).
 
-```text
-detail = GET /complaints/42               # contains rowVersion and allowedTransitions
-show buttons only for allowedTransitions   # empty for students and SUPER_ADMIN
-PATCH /complaints/42/status { status, remark, rowVersion: detail.rowVersion }
-  200 → replace local copy with response
-  409 → refetch detail, tell the user someone else changed it
-  422 → show fields (remark is required for RESOLVED and REJECTED)
-```
+### System popups while the app is minimized (Android)
+A foreground service (`flutter_foreground_task`, type `dataSync`) keeps the process and the SignalR connection alive after sign-in; when an event arrives while the app is paused/hidden, `flutter_local_notifications` shows a heads-up notification; tapping it opens that complaint. The user must allow notifications (Android 13+). Not available on web, in mock mode, or in tests (`NoopBackgroundAlerts`).
 
-## 7. Typed client (recommended)
+## 6. Auto-refresh
+Lists and dashboards call a quiet refresh every 10 s (`core/utils/auto_refresh.dart`), when the app resumes, and on a live notification. It never shows a loading state, changes nothing if the data is the same, and is skipped while the user is scrolled down a list. There is no server push to admins yet; new complaints appear within ~10 s.
 
-Generate types/DTOs from `contract/openapi.yaml` (e.g. `openapi-typescript` for TS, `openapi-generator -g dart-dio` for Flutter, `-g kotlin`/`swift5` for native) and wrap them in one HTTP module. If the generator struggles with the spec, hand-write the DTOs for the ~10 shapes in §4 and keep them in a single file so a contract change touches one place.
+## 7. Photos
+No upload endpoint (removed). Up to 3 photos per complaint (≤ 5 MB each) are stored **on the device** (sembast database keyed by account + complaint id) and shown only there. The UI says so.
 
-TypeScript sketch (one client module for the whole app):
-```ts
-const BASE = import.meta.env.VITE_API_URL;          // …/api/v1
-let token: string | null = null;
-export const setToken = (t: string | null) => { token = t; };
+## 8. Status changes without lost updates
+Read the complaint → show buttons from `allowedTransitions` (empty for students and the super admin) → `PATCH …/status` with the `rowVersion` from that read. `200` replace local copy; `409` reload and tell the user; `422` show fields (remark required for `RESOLVED` and `REJECTED`).
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(BASE + path, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }), ...init.headers },
-  });
-  if (res.status === 204) return undefined as T;
-  const body = await res.json().catch(() => null);
-  if (!res.ok) throw { status: res.status, ...(body?.error ?? { code: 'INTERNAL', message: 'Request failed' }) };
-  return body as T;
-}
-// usage: const { data } = await api<{ data: Complaint }>('/complaints/42');
-```
-Dart/dio: one `Dio` with `baseUrl` from `String.fromEnvironment('API_BASE_URL')`, an interceptor adding the bearer header, and an error interceptor mapping `response.data['error']` to a typed `ApiException(status, code, message, fields)`.
+## 9. Typed models
+The Dart models in `frontend/lib/domain` mirror the contract by hand (the schema is small). When the contract changes, update `domain/models/*` and the repositories in `data/repositories/remote/` together and extend `frontend/test`.
 
-## 8. Test accounts
+## 10. Test accounts
+Created with `--seed` using the server's `SEED_PASSWORD` (shared privately): `super@`, `cafeteria@`, `library@`, `labit@`, `academic@`, `student@`, `student2@` + `campusconnect.edu`. Offline demo accounts for `USE_MOCK=true`: `ali@student.com / Ali@1234`, `library.admin@campus.com / Admin@1234`, `super.admin@campus.com / Admin@1234`.
 
-Created with `--seed` on the server (password from the server's `SEED_PASSWORD`; ask the owner). Emails: `super@`, `cafeteria@`, `library@`, `labit@`, `academic@`, `student@`, `student2@` + `campusconnect.edu`.
-
-## 9. Pre-demo checks from the app
-
-- [ ] `GET /health` is 200 from the phone's network
-- [ ] Each role logs in and sees only its scope
-- [ ] Library admin opening a Lab/IT complaint id → 403 screen
-- [ ] Submit → complaint appears in the right department inbox
-- [ ] Status change with a remark, then a stale second edit → 409 message
-- [ ] Dashboard bar chart loads
+## 11. Pre-demo checks from the app
+- [ ] `GET /api/v1/health` is 200 from the phone's network
+- [ ] Each role signs in and sees only its scope
+- [ ] Library admin opening a Lab/IT complaint → access-denied screen
+- [ ] Submit → complaint appears in the right department inbox (within ~10 s)
+- [ ] Status change with a remark → the student gets a banner/popup
+- [ ] Super admin dashboard shows the department bar chart

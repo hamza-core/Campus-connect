@@ -33,6 +33,9 @@ CLI flags: `--migrate` (apply migrations), `--seed` (demo data; requires `SEED_P
 
 Keep and extend: forbidden-scope cases (library admin ↔ lab complaint by id and on status PATCH; student ↔ other student's complaint; student on admin routes; SUPER_ADMIN on PATCH/comments), routing for all four categories, every legal/illegal transition, stale rowVersion, validation → 422, upload URL policy, rate limit per client IP, health 503 when DB down, contract test (every documented route exists; responses match schema).
 
+## Realtime contract the app relies on
+Hub `/hubs/notifications` (JWT in `access_token` for WebSockets), event `notification` `{ id, message, complaintId, read, createdAt }` to the complaint owner only — see `CONTRACT.md` §4a. Keep Nginx WebSocket headers working. **Planned:** a hub event when a complaint is created (to the department's admins and the super admin) so the app can stop polling lists every 10 s — propose it in a `contract/` PR first. Don't make list endpoints expensive; the app polls them.
+
 ## Open items (from the PR #3 review, owner-tracked)
 
 - Tab/CR prefixes in CSV cells; self-notification on a user's own reply; ticket-counter first-of-year race — verify closed in `backend/PROGRESS.md`.
