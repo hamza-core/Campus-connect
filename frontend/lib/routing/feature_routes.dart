@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/department_admin/screens/admin_dashboard_screen.dart';
 import '../features/department_admin/widgets/admin_shell.dart';
+import '../features/notifications/screens/notifications_screen.dart';
 import '../features/shared/screens/complaint_detail_screen.dart';
 import '../features/shared/screens/complaint_list_screen.dart';
 import '../features/student/screens/student_dashboard_screen.dart';
@@ -35,6 +36,11 @@ List<RouteBase> featureRoutes(AuthController auth) => [
       _feature(
         '/student/profile',
         (state) => StudentProfileScreen(auth: auth),
+        student: true,
+      ),
+      _feature(
+        '/student/notifications',
+        (state) => const NotificationsScreen(),
         student: true,
       ),
       _feature(

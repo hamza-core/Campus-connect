@@ -8,6 +8,7 @@ import '../../../core/widgets/hero_header.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../core/widgets/shimmer_list.dart';
 import '../../../di/app_scope.dart';
+import '../../notifications/widgets/notification_bell.dart';
 import '../../../domain/models/app_user.dart';
 import '../../shared/widgets/complaint_tile.dart';
 import '../controllers/student_dashboard_controller.dart';
@@ -61,14 +62,24 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: const Color(0xFFD3E3DE),
-                        foregroundColor: theme.colorScheme.primary,
-                        child: Text(
-                          widget.user.name.characters.first.toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: const Color(0xFFD3E3DE),
+                            foregroundColor: theme.colorScheme.primary,
+                            child: Text(
+                              widget.user.name.characters.first.toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          NotificationBell(
+                            controller: AppScope.of(context).notifications,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
                       Text(

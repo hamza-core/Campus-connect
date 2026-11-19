@@ -9,6 +9,8 @@ abstract final class ApiEndpoints {
   static const analyticsByDepartment = 'analytics/by-department';
   static const analyticsByStatus = 'analytics/by-status';
   static const analyticsTrend = 'analytics/trend';
+  static const notifications = 'notifications';
+  static const notificationsReadAll = 'notifications/read-all';
 
   static String complaint(String id) =>
       '$complaints/${Uri.encodeComponent(id)}';

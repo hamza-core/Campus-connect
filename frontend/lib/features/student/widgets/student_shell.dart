@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/floating_pill_nav.dart';
 import '../../../core/widgets/nav_action_button.dart';
 import '../../../core/widgets/nav_item_data.dart';
+import '../../../di/app_scope.dart';
+import '../../notifications/controllers/notification_controller.dart';
 
 final class StudentShell extends StatefulWidget {
   const StudentShell({super.key, required this.route, required this.child});
@@ -26,6 +28,46 @@ final class _StudentShellState extends State<StudentShell> {
 
   /// Remembers the last tab so it stays highlighted on the New Complaint screen.
   int _lastTab = 0;
+  NotificationController? _notifications;
+  String? _shownId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = AppScope.of(context).notifications;
+    if (!identical(controller, _notifications)) {
+      _notifications?.removeListener(_onNotification);
+      _notifications = controller..addListener(_onNotification);
+    }
+  }
+
+  @override
+  void dispose() {
+    _notifications?.removeListener(_onNotification);
+    super.dispose();
+  }
+
+  /// Pops up a banner when a live notification arrives.
+  void _onNotification() {
+    final latest = _notifications?.latest;
+    if (latest == null || latest.id == _shownId || !mounted) return;
+    _shownId = latest.id;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+        content: Text(latest.message),
+        action: SnackBarAction(
+          label: 'View',
+          onPressed: () => context.push(
+            '/student/complaints/${Uri.encodeComponent(latest.complaintId)}',
+          ),
+        ),
+      ),
+    );
+  }
 
   bool get _closing => widget.route == StudentShell.newComplaint;
 

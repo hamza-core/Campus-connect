@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'core/widgets/error_view.dart';
 import 'di/app_dependencies.dart';
 import 'di/app_scope.dart';
+import 'domain/enums/user_role.dart';
 import 'features/auth/controllers/auth_controller.dart';
 import 'routing/app_router.dart';
 import 'routing/feature_routes.dart';
@@ -30,6 +31,14 @@ void main() {
   final dependencies = AppDependencies.create(config);
   final auth = AuthController(dependencies.auth);
   dependencies.tokens?.onExpired = auth.expireSession;
+  // Only students receive notifications; connect while a student is signed in.
+  auth.addListener(() {
+    if (auth.user?.role == UserRole.student) {
+      dependencies.notifications.start();
+    } else {
+      dependencies.notifications.stop();
+    }
+  });
   final GoRouter router = AppRouter.authenticated(
     auth: auth,
     featureRoutes: featureRoutes(auth),
