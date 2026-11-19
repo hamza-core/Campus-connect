@@ -40,7 +40,11 @@ final class RemoteAuthRepository implements AuthRepository {
       body: body,
       authenticated: false,
     );
-    final data = response['data'] as Map<String, Object?>;
+    // The API returns { token, user } at the top level for login/register.
+    // Also accept a { data: { token, user } } envelope.
+    final data = response['data'] is Map<String, Object?>
+        ? response['data'] as Map<String, Object?>
+        : response;
     final user = AppUser.fromJson(data['user'] as Map<String, Object?>);
     if (generation != _generation) throw const UnauthorizedException();
     _tokens.replace(data['token'] as String);
