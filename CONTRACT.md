@@ -12,13 +12,13 @@ If `CLAUDE.md` or `AGENTS.md` conflict with this file, this file wins.
 4. `CLAUDE.md` / `AGENTS.md` — per-agent instructions
 5. `docs/CampusConnect_Competition_Problem_Statement.pdf`
 
-Code and spec disagree → the spec is right until a `contract:` PR says otherwise. (Exception while PR #3 is open: its `backend/contracts/PR3_REVIEW.md` is the backend's declared deviation list; v1.1.0 already absorbs it.)
+Code and spec disagree → the spec is right until a `contract:` PR says otherwise. The realtime hub (§4a) is not expressible in OpenAPI, so this file defines it.
 
 ## 1. Ownership
 
 | Area | Owner |
 |---|---|
-| `frontend/**` | **Claude** |
+| `frontend/**` (Flutter app) | **Claude** (the frontend teammate's original scaffold lives in the same tree) |
 | `backend/**` (API, migrations, tests, deploy examples) | **Codex** (the backend agent / Talal's session) |
 | `contract/**`, `docs/**`, `CONTRACT.md`, `CLAUDE.md`, `AGENTS.md`, `.github/**`, AWS config | **Owner (human integrator)** |
 
@@ -64,6 +64,25 @@ Never edit another owner's area. Need a change there → handoff (§5) or a PR t
 ### Deferred / optional
 
 "Me too" support endpoints are **deferred** (always 403). SignalR hub is optional; REST (`/notifications`) is authoritative — poll every 30 s. Priority, SLA/`isOverdue`, anonymous-to-staff, feedback rating, CSV export, recurring-issues analytics are implemented and optional for the UI.
+
+## 4a. Realtime (SignalR) — outside OpenAPI
+
+| Item | Rule |
+|---|---|
+| Hub | `/hubs/notifications` (not under `/api/v1`); ASP.NET Core SignalR, JSON protocol, WebSockets |
+| Auth | Same JWT. WebSocket clients send it as the `access_token` query parameter; unauthenticated → `401`. The hub rejects groups clients try to join (server-side group `user:{id}` only) |
+| Event | `notification` with one argument `{ id, message, complaintId, read, createdAt }` (camelCase), sent **only to the complaint owner** when a status change, remark or reply is saved |
+| Authority | `GET /notifications` stays authoritative. Clients load it first, merge events by `id`, ignore duplicates, and reload after a reconnect |
+| Changes | New events/arguments are additive; renaming or removing is breaking and follows §2 |
+
+Planned (not built): a hub event for department admins/super admin when a complaint is created (today they poll every 10 s).
+
+## 4b. Client behaviour the backend can rely on
+
+- Status updates always carry the `rowVersion` last read; `409` is handled by reloading.
+- The app never sends `departmentId` or `imageUrls` content; photos stay on the device.
+- Lists/dashboards poll every 10 s (visible screens only) — keep list endpoints cheap and `pageSize ≤ 100`.
+- Auth endpoints are rate limited (20/min/IP by default); `429` is shown to the user.
 
 ## 5. Handoffs
 

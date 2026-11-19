@@ -1,13 +1,17 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.2.0
+  version: 1.2.1
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
     Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
     Frontend (Claude) builds against this file. v1.1.0 aligns the spec with the implemented backend (PR #3).
     Change rules live in /CONTRACT.md. Never edit this file in a feature PR that also
     changes app code - contract changes go in their own `contract:` PR first.
+
+    Realtime (not expressible in OpenAPI): SignalR hub `/hubs/notifications` (outside `/api/v1`).
+    JWT via `access_token` query for WebSockets. Event `notification` -> { id, message, complaintId, read, createdAt },
+    sent to the complaint owner only. See /CONTRACT.md section 4a.
 servers:
   - url: http://localhost:4000/api/v1
     description: Local

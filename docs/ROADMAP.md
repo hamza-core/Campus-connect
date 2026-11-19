@@ -1,11 +1,21 @@
-# Roadmap (to the 3:00 PM deadline)
+# Roadmap
 
-| Stage | Backend (Codex) | Frontend (Claude) | Owner |
-|---|---|---|---|
-| Now | Merge PR #3 once CI is green; close open review items | Integrate per `docs/INTEGRATION.md`; build against Prism/real API | Deploy build to EC2 (`docs/DEPLOYMENT.md` §C); Elastic IP; Cloudinary keys |
-| Next | Support decision (#4); spec/code sync | MVP screens: auth, submit, lists, detail, dept actions, dashboards | Merge contract PR #2 (v1.1.0) |
-| Then | Refresh-token increment only if time (all-or-nothing) | Charts, notifications, rating, CSV | Domain + HTTPS (certbot), APK build |
-| **2:00 PM** | **Feature freeze** — bug fixes only | same | Smoke test every role from the installed APK |
-| 2:45–3:00 | — | — | Submit API URL + APK link |
+## Done
+- Contract v1.2.1, .NET 10 API on EC2/RDS behind Nginx, SignalR hub, seed data, 46+ backend tests in CI.
+- Flutter app: all three roles, every backend feature except the deferred "me too" support (see `docs/REQUIREMENTS_COVERAGE.md`), realtime notifications, Android popups while minimized, auto-refresh, remembered login, CSV export, charts. 37 tests, APK built in CI.
+- Backups: git tags + APKs; server copy in `~/api-stable`.
 
-Cut order if behind: CSV → trend → recurring → rating → notifications. Never cut: auth, submit, auto-routing, 403 isolation, status updates, bar chart, deployment.
+## Next (ordered by value)
+1. **HTTPS**: domain + Elastic IP + `certbot --nginx`; then remove `usesCleartextTraffic` and update `API_BASE_URL`.
+2. **Push to admins**: backend publishes a hub event when a complaint is created (group per department + super admin); app swaps polling for the event (keep polling as fallback). Needs a `contract/` PR first.
+3. **Stable release signing + app id** (replace `com.example.project`), Firebase App Distribution or Drive for testers.
+4. **Refresh-token flow** (all-or-nothing: rotation, replay revocation, single-flight client).
+5. **Image storage** (S3/Cloudinary) behind a new upload endpoint; then show photos to staff.
+6. **FCM push** for notifications when the app is fully closed (the foreground service covers minimized only).
+7. Cleanup: remove unused packages (`lottie`, `animations`, `animated_text_kit`, `flutter_staggered_animations`, `google_fonts`, `cupertino_icons`), delete demo/test complaints (`[API TEST]`, `[REALTIME TEST]`), rotate the demo password.
+
+## Release checklist
+- [ ] `flutter analyze && flutter test` green; `backend-ci` green
+- [ ] APK built by `frontend-apk.yml` for the production URL
+- [ ] `GET /api/v1/health` = 200; negotiate on `/hubs/notifications` = 200
+- [ ] Sign in as each role from the installed APK; Library admin → Lab complaint = 403

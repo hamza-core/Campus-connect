@@ -1,5 +1,9 @@
 # Contract Changelog
 
+## 1.2.1 — documentation only (no wire changes)
+- `CONTRACT.md` §4a documents the SignalR hub (`/hubs/notifications`, `access_token` query, `notification` event payload) and §4b the client behaviour the backend can rely on (rowVersion, 10 s polling, rate limits).
+- OpenAPI `info.description` points to the hub. The Flutter app now consumes every endpoint except the deferred support routes.
+
 ## 1.2.0 — image upload removed (owner decision: no storage provider for now)
 **Breaking:** `POST /uploads/sign` is removed. `imageUrls` on `POST /complaints` is deprecated: accepted but ignored; responses always return `imageUrls: []`. The mobile app keeps attached images on the device and does not send them. A storage provider (S3/Cloudinary) can be added later via a `contract/` PR.
 

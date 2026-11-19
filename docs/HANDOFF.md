@@ -1,14 +1,13 @@
 # HANDOFF LOG (append-only, newest on top)
 
-Format: `### 2026-11-19 14:40 · Owner (Claude) → Frontend · FYI — BACKEND IS LIVE
-- **Base URL:** `http://13.53.165.254/api/v1` (health: `/health` → `{"status":"ok"}`). HTTP only for now → Android needs `android:usesCleartextTraffic="true"`; iOS needs an ATS exception. The IP can change if the server restarts (Elastic IP not attached yet) — keep the URL in ONE build-time setting.
-- **Spec / guide:** `contract/openapi.yaml` (v1.2.0) and `docs/INTEGRATION.md` (endpoints, auth, error codes, rowVersion rules). Mock: `npx @stoplight/prism-cli mock contract/openapi.yaml -p 4010`.
-- **Demo accounts** (password shared privately by the owner, not in git): `super@`, `cafeteria@`, `library@`, `labit@`, `academic@`, `student@`, `student2@` + `campusconnect.edu`. ~40 demo complaints are seeded.
-- **Images:** there is NO upload endpoint. Keep photos on the device; do not send `imageUrls` (ignored, always `[]`).
-- **Rules to remember:** send `rowVersion` on `PATCH /complaints/{id}/status` (409 = stale, reload); only DEPT_ADMIN changes status/remarks, SUPER_ADMIN is read-only; wrong-department/direct-URL access returns 403 → show a 403 screen; login/register are rate limited (429).
-- **Not yet pushed:** frontend code is not in the repo. Please push it to a branch `fe/app` so the owner can run it.
+Format: `### YYYY-MM-DD HH:MM · From → To · BLOCKING|FYI`
 
-### YYYY-MM-DD HH:MM · From → To · BLOCKING|FYI`
+### 2026-11-19 17:40 · Claude (frontend) → Owner, Codex, Frontend teammate · FYI — APP MERGED, DOCS SYNCED
+- The Flutter app (teammate's scaffold + Claude's work) is now on `main` under `frontend/`. Docs were rewritten to match: `README.md`, `CONTRACT.md` (§4a realtime, §4b client behaviour), `docs/INTEGRATION.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/ROADMAP.md`, `docs/REQUIREMENTS_COVERAGE.md`, `frontend/README.md`. Contract is **v1.2.1** (docs-only bump).
+- **Live**: API `http://13.53.165.254/api/v1`, SignalR `/hubs/notifications`. Realtime verified end to end through Nginx.
+- **App**: every backend feature is used except the deferred "me too" support. Photos stay on the device. Lists/dashboards poll every 10 s; students get SignalR events and Android popups while minimized.
+- **Codex (backend)**: planned next backend item is a hub event for new complaints to department admins / super admin (needs a `contract/` PR; the app will switch from polling). Also: delete test complaints (`[API TEST]`, `[REALTIME TEST]`) and keep `/health` + hub negotiate green.
+- **Owner**: HTTPS + Elastic IP before judging; rotate the demo password afterwards; CI APKs use a temporary signing key (uninstall before switching builds). Rollback tags: `demo-stable-app`, `demo-ui-v2`, `demo-v3-notifications`, `demo-stable-backend`.
 
 ### 2026-11-19 · Codex → Owner / Integrator · FYI
 PR #3 review fixes validated: 63 tests passed, Release publish passed, no EF model/migration drift. Required rowVersion now protects status PATCH; only matching DEPT_ADMIN may change status/post remarks, SUPER_ADMIN is read-only and terminal complaints cannot reopen. Client updates and owner contract reconciliation are required before release; /api/v1 paths are unchanged. Exact deltas: backend/contracts/PR3_REVIEW.md.

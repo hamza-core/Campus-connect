@@ -36,27 +36,46 @@ JWT_SECRET=<48 random bytes, base64>
 
 ## C. Deploy (manual)
 
-1. **Mac:** `cd backend && dotnet publish src/CampusConnect.Api -c Release -r linux-x64 --self-contained false -o publish` (SDK 10 required; `global.json` allows later 10.0.x).
+1. **Build:** easiest is the CI artifact — every push/PR touching `backend/` runs `backend-ci.yml`, which publishes `backend-api` (`gh run download <run-id> -n backend-api`). Locally: `cd backend && dotnet publish src/CampusConnect.Api -c Release -r linux-x64 --self-contained false -o publish` (SDK 10.0.x).
 2. **Mac:** `ssh … "mkdir -p ~/api"` then `scp -r publish/* ubuntu@<ip>:~/api/`.
 3. **Server:** `/etc/api.env` as in §B (`sudo chmod 600`).
 4. **Server (first time / after schema changes):**
    ```
-   cd ~/api
-   set -a; sudo cat /etc/api.env > /tmp/e; . /tmp/e; set +a; rm /tmp/e
-   dotnet CampusConnect.Api.dll --migrate        # creates DB CampusConnect + applies migrations
-   SEED_PASSWORD='…' dotnet CampusConnect.Api.dll --migrate --seed   # optional demo data
+   # Run through systemd so /etc/api.env is parsed correctly (sourcing it in a shell breaks on the
+   # semicolons/spaces in the connection string).
+   sudo systemd-run --wait --pipe -q -p EnvironmentFile=/etc/api.env -p WorkingDirectory=/home/ubuntu/api -p User=ubuntu \
+     /usr/bin/dotnet /home/ubuntu/api/CampusConnect.Api.dll --migrate          # creates DB CampusConnect + applies migrations
+   # Demo data (departments + 7 accounts + ~40 complaints). Departments are REQUIRED for /meta/categories:
+   sudo systemd-run --wait --pipe -q -p EnvironmentFile=/etc/api.env -p WorkingDirectory=/home/ubuntu/api -p User=ubuntu \
+     --setenv=SEED_PASSWORD='<password>' /usr/bin/dotnet /home/ubuntu/api/CampusConnect.Api.dll --seed
    ```
 5. **Server:** `/etc/systemd/system/api.service` (`User=ubuntu`, `WorkingDirectory=/home/ubuntu/api`, `EnvironmentFile=/etc/api.env`, `ExecStart=/usr/bin/dotnet /home/ubuntu/api/CampusConnect.Api.dll`, `Restart=always`) → `sudo systemctl daemon-reload && sudo systemctl enable --now api`. Logs: `journalctl -u api -n 50 --no-pager`. Examples: `backend/deploy/`.
-6. **Server:** Nginx site on port 80 → `http://127.0.0.1:5000` with headers `Host $host`, `X-Forwarded-For $remote_addr`, `X-Forwarded-Proto $scheme`, `client_max_body_size 6m`, WebSocket upgrade lines for SignalR; `sudo nginx -t && sudo systemctl restart nginx`.
-7. **Verify:** `curl http://<ip>/api/v1/health` → `{"status":"ok"}`; `curl http://<ip>/api/v1/meta/categories`.
+6. **Server:** Nginx default site on port 80 → `http://127.0.0.1:5000` with `proxy_http_version 1.1`, headers `Host $host`, `X-Forwarded-For $remote_addr`, `X-Forwarded-Proto $scheme`, and **WebSocket upgrade** (`map $http_upgrade $connection_upgrade { default upgrade; "" close; }` + `proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade;`, `proxy_read_timeout 120s`) — required for SignalR; `sudo nginx -t && sudo systemctl reload nginx`. See `backend/deploy/nginx.conf.example`.
+7. **Verify:** `curl http://<ip>/api/v1/health` → `{"status":"ok"}`; `curl http://<ip>/api/v1/meta/categories`; SignalR: `curl -X POST "http://<ip>/hubs/notifications/negotiate?negotiateVersion=1" -H "Authorization: Bearer <token>"` → 200 with `WebSockets` available (no token → 401).
 8. **Update later:** repeat 1–2, then `sudo systemctl restart api` (run `--migrate` first if the PR has a new migration; keep migrations backward-compatible).
 
-## D. APK distribution
+## D. The Android app (APK)
 
-- Build the app with the production API base URL (see `docs/INTEGRATION.md` §1).
-- **Firebase App Distribution:** console upload or `firebase appdistribution:distribute app-release.apk --app <APP_ID> --testers "a@x.com" --release-notes "…"`.
-- **Google Drive:** upload, share "Anyone with the link"; testers allow *Install unknown apps*.
+- **Build:** GitHub Actions `frontend-apk.yml` runs on pushes to `fe/**` and PRs touching `frontend/`: `flutter analyze` → `flutter test` → `flutter build apk --release --dart-define=API_BASE_URL=http://13.53.165.254/api/v1` → artifact **`campusconnect-apk`** (`gh run download <run-id> -n campusconnect-apk`). Flutter 3.47.9, JDK 17, Android compileSdk 37. The workflow's `API_BASE_URL` env must be updated when the server address or scheme changes.
+- **Install on a phone:** `adb install -r app-release.apk` (wireless debugging works) or copy the file and allow *Install unknown apps*.
+- **Signing:** CI uses a temporary debug key, so each build has a different signature. Switching builds requires `adb uninstall com.example.project` first (this clears the app's local photos). For a stable key, add a release keystore as a repository secret before a store release; change the application id (`com.example.project`) at the same time.
+- **Distribute (pick one):** Firebase App Distribution (`firebase appdistribution:distribute app-release.apk --app <APP_ID> --testers "a@x.com"`) or Google Drive link ("Anyone with the link").
+- **Permissions:** the app asks for notifications on the first student sign-in. For popups while minimized on Samsung/Xiaomi/etc. set *Settings → Apps → CampusConnect → Battery → Unrestricted*. The foreground service shows one quiet "Listening for complaint updates" notification.
 - Give judges: the APK link, the API URL (`/api/v1/health`), and the demo accounts (privately).
+
+## Live server layout (as deployed)
+
+| Item | Value |
+|---|---|
+| Host | EC2 `api-server`, `13.53.165.254` (no Elastic IP yet), user `ubuntu` |
+| App files | `/home/ubuntu/api` (publish output) |
+| Service | `api.service` (systemd, `EnvironmentFile=/etc/api.env`, `Restart=always`) — logs: `journalctl -u api -n 50 --no-pager` |
+| Nginx | `/etc/nginx/sites-available/default` (backup: `~/nginx-default.stable`) |
+| Known-good backup | `~/api-stable` (+ `~/api-stable.env.bak`) |
+| Database | RDS `campusconnectv1` (SQL Server Express), database `CampusConnect` |
+
+**Roll back the API:** `sudo systemctl stop api && rm -rf ~/api && cp -r ~/api-stable ~/api && sudo systemctl start api`.
+**Roll back the app:** reinstall an earlier APK (uninstall first). Git tags `demo-stable-app`, `demo-ui-v2`, `demo-v3-notifications` (app) and `demo-stable-backend` (API) mark known-good commits.
 
 ## E. Pre-demo checklist
 

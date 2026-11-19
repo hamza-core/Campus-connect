@@ -1,7 +1,7 @@
 name: Frontend APK
 on:
   push:
-    branches: [fe/**]
+    branches: [main, fe/**]
     paths: ['frontend/**', '.github/workflows/frontend-apk.yml']
   pull_request:
     paths: ['frontend/**']
