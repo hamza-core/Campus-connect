@@ -136,7 +136,19 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!keyboardOpen)
-                Text(widget.title, style: theme.textTheme.headlineMedium),
+                Text(
+                  widget.title,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              if (_counts[null] != null)
+                Text(
+                  '${_counts[null]} complaints',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: const Color(0xFF5F6B68),
+                  ),
+                ),
               if (!keyboardOpen && widget.department) ...[
                 const SizedBox(height: 12),
                 SegmentedButton<bool>(
@@ -182,6 +194,12 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
                                 '${status?.label ?? 'All'}${_counts[status] == null ? '' : ' ${_counts[status]}'}',
                               ),
                               selected: controller.filter.status == status,
+                              labelStyle: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: controller.filter.status == status
+                                    ? theme.colorScheme.onPrimary
+                                    : theme.colorScheme.onSurface,
+                              ),
                               onSelected: (_) => controller.setFilter(
                                 controller.filter.copyWith(
                                   status: () => status,

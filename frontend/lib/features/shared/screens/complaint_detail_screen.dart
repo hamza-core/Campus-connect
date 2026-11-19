@@ -94,15 +94,47 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                         DecoratedBox(
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primary,
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x33000000),
+                                blurRadius: 16,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Text(
-                              complaint.summary.title,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: theme.colorScheme.onPrimary,
-                              ),
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  complaint.summary.title,
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
+                                        color: theme.colorScheme.onPrimary,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    StatusBadge(
+                                      status: complaint.summary.status,
+                                    ),
+                                    Text(
+                                      complaint.summary.department.name,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onPrimary
+                                            .withValues(alpha: .9),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         )
@@ -112,15 +144,16 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                           style: theme.textTheme.headlineSmall,
                         ),
                       const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          StatusBadge(status: complaint.summary.status),
-                          Text(complaint.summary.department.name),
-                        ],
-                      ),
+                      if (!isStudent)
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            StatusBadge(status: complaint.summary.status),
+                            Text(complaint.summary.department.name),
+                          ],
+                        ),
                       if (!isStudent && complaint.authorName != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 12),

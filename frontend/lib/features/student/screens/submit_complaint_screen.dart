@@ -114,15 +114,43 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
             return ListView(
               padding: const EdgeInsets.all(18),
               children: [
-                LinearProgressIndicator(
-                  value: category == null ? .5 : 1,
-                  semanticsLabel: 'Step ${category == null ? 1 : 2} of 2',
+                Semantics(
+                  label: 'Step ${category == null ? 1 : 2} of 2',
+                  child: Row(
+                    children: [
+                      Text(
+                        'STEP ${category == null ? 1 : 2} OF 2',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              letterSpacing: 1,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF5F6B68),
+                            ),
+                      ),
+                      const SizedBox(width: 12),
+                      for (final filled in [true, category != null]) ...[
+                        Expanded(
+                          child: Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: filled
+                                  ? Theme.of(context).colorScheme.primary
+                                  : const Color(0xFFDAD5C7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                        if (filled == true) const SizedBox(width: 6),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 if (category == null) ...[
                   Text(
                     "What's the issue about?",
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   const Text(
@@ -131,12 +159,12 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                   const SizedBox(height: 16),
                   LayoutBuilder(
                     builder: (context, constraints) => Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
                         for (final item in ComplaintCategory.values)
                           SizedBox(
-                            width: (constraints.maxWidth - 10) / 2,
+                            width: (constraints.maxWidth - 12) / 2,
                             child: ComplaintCategoryCard(
                               item: item,
                               onTap: () => setState(() => _category = item),

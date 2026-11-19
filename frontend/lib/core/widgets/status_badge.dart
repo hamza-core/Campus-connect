@@ -9,10 +9,10 @@ final class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, foreground, background) = switch (status) {
-      ComplaintStatus.pending => ('Pending', 0xFFB45309, 0xFFFEF3C7),
-      ComplaintStatus.inProgress => ('In progress', 0xFF1D4ED8, 0xFFDBEAFE),
-      ComplaintStatus.resolved => ('Resolved', 0xFF15803D, 0xFFDCFCE7),
-      ComplaintStatus.rejected => ('Rejected', 0xFFB91C1C, 0xFFFEE2E2),
+      ComplaintStatus.pending => ('Pending', 0xFFB45309, 0xFFFDF0C4),
+      ComplaintStatus.inProgress => ('In-Progress', 0xFF1D4ED8, 0xFFDBE7FD),
+      ComplaintStatus.resolved => ('Resolved', 0xFF15803D, 0xFFDDF6E4),
+      ComplaintStatus.rejected => ('Rejected', 0xFFB91C1C, 0xFFFDE0E0),
     };
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -21,10 +21,26 @@ final class StatusBadge extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium
-              ?.copyWith(color: Color(foreground)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(foreground),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Color(foreground),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

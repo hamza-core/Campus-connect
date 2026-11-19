@@ -52,6 +52,17 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.dispose();
   }
 
+  (Color, Color) _tint(String label) => switch (label) {
+    'Pending' => (const Color(0xFFFBF0C5), const Color(0xFFB45309)),
+    'In progress' => (const Color(0xFFDDE8FD), const Color(0xFF1D4ED8)),
+    'Resolved' => (const Color(0xFFDDF6E4), const Color(0xFF15803D)),
+    'Rejected' => (const Color(0xFFFDE0E0), const Color(0xFFB91C1C)),
+    _ => (
+      Theme.of(context).colorScheme.primary,
+      Theme.of(context).colorScheme.onPrimary,
+    ),
+  };
+
   @override
   Widget build(BuildContext context) {
     final controller = _controller!;
@@ -112,6 +123,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               columns,
                           child: Card(
                             margin: EdgeInsets.zero,
+                            color: _tint(label).$1,
                             child: Padding(
                               padding: const EdgeInsets.all(14),
                               child: Column(
@@ -120,10 +132,17 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   Text(
                                     '$count',
                                     style: textTheme.headlineMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w800,
+                                      color: _tint(label).$2,
                                     ),
                                   ),
-                                  Text(label),
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      color: _tint(label).$2,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
