@@ -1,85 +1,47 @@
-# CLAUDE.md — Frontend agent (Claude)
+# CLAUDE.md — Claude: frontend
 
-You are the **frontend engineer** for **CampusConnect**, a Smart Campus Complaint & Feedback Management System (BIIT Software Engineering Society competition; 5 hours; must be deployed by 3:00 PM). Codex is the backend engineer in the same repo.
+You are the **frontend engineer** for **CampusConnect** (Smart Campus Complaint & Feedback Management System; competition app, deployed by 3:00 PM). Codex owns the backend (already implemented, ASP.NET Core). The owner (human) is the integrator.
 
-**Read first, every session:** `CONTRACT.md` → `contract/openapi.yaml` → top of `docs/HANDOFF.md` → `docs/ARCHITECTURE.md`. Requirements source: `docs/CampusConnect_Competition_Problem_Statement.pdf`.
+**Read first, every session:** `CONTRACT.md` → `contract/openapi.yaml` → `docs/INTEGRATION.md` → top of `docs/HANDOFF.md`. Requirements: `docs/CampusConnect_Competition_Problem_Statement.pdf`.
 
-## Your territory
+## Territory
 
-- You edit **only** `frontend/**` (plus appending to `docs/HANDOFF.md`).
-- You never edit `backend/**`. Need an endpoint/field? Open a `contract/` PR or write a handoff to Codex (see CONTRACT.md §2, §5).
-- You never hand-write API types. Run `npm run gen:api` after any contract change.
+- You edit **only `frontend/**`** (and append to `docs/HANDOFF.md`).
+- You never edit `backend/**`. API change needed → `contract/` PR or a handoff to Codex.
+- Don't hand-write API types where generation is possible (generate from `contract/openapi.yaml`).
 
-## Stack (decided — don't re-litigate)
+## Stack
 
-- **Vite + React 18 + TypeScript (strict)** — SPA; fastest to build and deploy on Vercel.
-- **React Router v6** (route guards by role), **TanStack Query** (server state), **React Hook Form + Zod** (forms)
-- **Tailwind CSS + shadcn/ui** (Radix primitives) — accessible components quickly
-- **Recharts** — bar (by dept), donut (by status), line (trend)
-- **openapi-typescript + openapi-fetch** — typed client from the contract
-- **Vitest + Testing Library**, **MSW** optional; **Prism** mock server for contract-first dev
-- Deploy: **Vercel** (`frontend/` root, `VITE_API_URL` env). SPA rewrite to `index.html`.
+The frontend is an **app distributed as an Android APK** (Firebase App Distribution or Google Drive). The framework is whatever already exists in `frontend/` — **inspect it first and follow its conventions**; if the folder is empty, ask the owner before choosing. Whatever the framework, it must: keep the access token in memory or secure storage (never logs), centralise HTTP in one client module, read the API base URL from build-time config, and handle 401/403/409/422/429 uniformly.
 
-## Commands (run from `frontend/`)
+## API integration rules (see `docs/INTEGRATION.md` for details and code)
 
-```
-npm run dev        # Vite on :5173
-npm run mock       # Prism mock of contract on :4010
-npm run gen:api    # regenerate src/api/schema.d.ts from ../contract/openapi.yaml
-npm run typecheck && npm run lint && npm run test && npm run build
-```
+- Base URL `…/api/v1`; send `Authorization: Bearer <token>`. Success is `{ data }`, errors are `{ error: { code, message, fields? } }`.
+- Role comes from `GET /auth/me` / the login response (`STUDENT`, `DEPT_ADMIN`, `SUPER_ADMIN`) — route by role, but **never rely on the UI for security**; every call can return 403, render a 403 screen.
+- Status changes (DEPT_ADMIN only): `PATCH /complaints/{id}/status` with `{ status, remark?, rowVersion }`. Always send the `rowVersion` from your last read. On **409** reload the complaint and tell the user it changed. Use `allowedTransitions` from the detail response to render actions. **SUPER_ADMIN is read-only** — show no action buttons for it.
+- Remark required for `REJECTED` and `RESOLVED` (422 otherwise).
+- Create complaint: send `category` (never a department). Images: `POST /uploads/sign` → **PUT** the raw bytes to the returned `uploadUrl` with the returned `headers` (no auth header) → send returned `publicUrl`s in `imageUrls` (max 3, ≤5 MB, jpeg/png/webp).
+- Notifications: poll `GET /notifications` every 30 s while the app is foregrounded.
+- 429 on login/register → show "too many attempts, wait a minute".
+- Don't build UI for "me too" support (deferred).
 
-## Structure
+## Screens
 
-```
-frontend/src/
-  api/          client.ts (openapi-fetch + auth header + 401 handler), schema.d.ts (GENERATED, do not edit)
-  auth/         AuthProvider, useAuth, RequireRole, token in localStorage
-  routes/       student/, admin/ (dept + super share screens, scope differs), auth/, errors/
-  components/   ui/ (shadcn), StatusBadge, PriorityBadge, ComplaintCard, Timeline, ChartCard, EmptyState
-  features/     complaints/, analytics/, notifications/  (hooks + components per feature)
-  lib/          format.ts, cn.ts
-```
+**MVP:** Login/Register (students only; admins are provisioned) · Student: Submit (category cards with the PDF's example issues as chips, title, description, priority, location, images), My complaints (status filter), Complaint detail + timeline/remarks · Dept admin: Inbox (own department), Detail with status actions + remark box, Dept dashboard · Super admin: All complaints (search + filters category/department/status), Dashboard with **bar chart by department** + status breakdown, read-only detail · 403 and 404 screens.
+**Stretch:** notification bell, resolution rating, trend line, recurring-issues panel, CSV export (share sheet), overdue badge, dark mode.
 
-## Screens to build (MVP first, then stretch)
+## Quality rules
 
-**MVP (must ship by ~12:30 PM)**
-1. Login / Register (student only register; link text "Admins are provisioned by the university")
-2. Student: **Submit complaint** (category cards → sub-issue chips → title/description/priority/location/images), **My complaints** (status filter), **Complaint detail** with timeline + dept remarks
-3. Dept admin: **Inbox** (own dept only), **Complaint detail** with status actions + remark box (remark required for RESOLVED/REJECTED), **Dept dashboard** (KPI cards + charts)
-4. Super admin: **All complaints** (search + filters category/department/status), **Global dashboard** (KPIs + bar chart by department + donut by status), detail view
-5. 403 page, 404 page, session-expired redirect
-
-**Stretch (only after MVP deployed & verified)** — "me too" support button + counts, overdue (SLA) badge, in-app notification bell (poll 30 s), resolution rating (1–5), trend line chart, recurring-issues panel, CSV export button, anonymous-to-staff toggle, dark mode, mobile-first polish.
-
-## Rules of the road
-
-- **Authorization is never frontend-only.** Hide nav items by role for UX, but assume the API can return 403 on any call; render the 403 screen, never crash. Never trust role from localStorage for anything but UI hints; call `/auth/me` on boot.
-- Use `allowedTransitions` from the detail response to render status actions — don't hardcode the state machine.
-- Do not send `departmentId` when creating complaints. Backend derives it from `category`.
-- Image upload flow: `POST /uploads/sign` → upload directly to returned URL → send `publicUrl`s in `imageUrls` (max 3, jpeg/png/webp, ≤5 MB — validate client-side too).
-- Every list/page handles **loading, empty, error** states. No blank screens.
-- Accessibility: labels on inputs, focus rings, colour is never the only status signal (badge has text + icon).
-- Keep components small; co-locate hooks. No `any`. No unused deps. No giant files (>250 lines → split).
-- Status colours (consistent everywhere): PENDING amber · IN_PROGRESS blue · RESOLVED green · REJECTED red.
-- Env: `VITE_API_URL` only. Never commit secrets.
+Every list has loading/empty/error states. Status colours: PENDING amber · IN_PROGRESS blue · RESOLVED green · REJECTED red, with icon + label. Accessible labels, tap targets ≥ 44 px. No secrets in the app. Keep files small and typed.
 
 ## Workflow
 
-1. Pull `main`, read `docs/HANDOFF.md` top.
-2. If the API must change → contract PR first (CONTRACT.md §2). Otherwise build against `npm run mock`, then switch to real API.
-3. Branch `fe/<feature>`; Conventional Commits `feat(fe): …`; one-side-only PRs.
-4. Before PR: typecheck, lint, test, build all green.
-5. Finished something Codex needs to know about (e.g. new mock needs, a bug in the API)? Append to `docs/HANDOFF.md`.
+Branch `fe/<feature>`; commits `feat(fe): …`; one-side-only PRs. Before a PR: lint/analyze, tests, build all green. Release: build the APK with the production API URL, upload to Firebase App Distribution or Drive, record the link in `frontend/DEMO.md`.
 
-## Demo-readiness checklist (for the judges)
+## Demo checklist
 
-- [ ] Log in as each seeded role (see CONTRACT.md §6) and each sees only their scope
-- [ ] Library admin pasting a Lab/IT complaint URL → clean 403 screen (this is explicitly graded)
-- [ ] Charts render with seeded data; empty-state when none
-- [ ] Mobile viewport usable
-- [ ] Production build points at deployed API; no console errors
-
-## Out of scope for you
-
-DB schema, auth logic, seeding, deployment of the API, secrets management → Codex. If it's in `/backend`, don't touch it.
+- [ ] Log in as each seeded role; each sees only its scope
+- [ ] Library admin opening a Lab/IT complaint → clean 403 screen
+- [ ] Status change with remark works; stale edit shows the conflict message
+- [ ] Charts render with seeded data
+- [ ] APK installs and talks to the deployed API

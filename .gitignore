@@ -1,11 +1,21 @@
-node_modules/
-dist/
-build/
+.DS_Store
 .env
 .env.*
 !.env.example
-.DS_Store
 *.log
-coverage/
-.vercel/
-frontend/src/api/schema.d.ts
+# .NET
+bin/
+obj/
+*.user
+publish/
+appsettings.*.local.json
+# Flutter
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins*
+mobile/lib/api/generated/
+*.keystore
+*.jks
+key.properties
+# Misc
+node_modules/

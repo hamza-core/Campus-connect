@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
-    Frontend (Claude) generates types from this file; backend (Codex) implements it.
+    Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
+    Frontend (Claude) builds against this file. v1.1.0 aligns the spec with the implemented backend (PR #3).
     Change rules live in /CONTRACT.md. Never edit this file in a feature PR that also
     changes app code - contract changes go in their own `contract:` PR first.
 servers:
   - url: http://localhost:4000/api/v1
     description: Local
+  - url: http://13.53.165.254/api/v1
+    description: AWS EC2 behind Nginx (HTTP until a domain and certificate exist)
   - url: https://campusconnect-api.onrender.com/api/v1
     description: Production (update after deploy)
 
@@ -28,8 +31,17 @@ paths:
     get:
       tags: [Meta]
       security: []
-      summary: Liveness probe
+      summary: Liveness + database reachability probe
       responses:
+        "503":
+          description: SQL Server unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [unavailable] }
         "200":
           description: OK
           content:
@@ -76,6 +88,7 @@ paths:
               schema: { $ref: "#/components/schemas/AuthResponse" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /auth/login:
     post:
@@ -94,6 +107,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AuthResponse" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /auth/me:
     get:
@@ -114,7 +128,10 @@ paths:
   /uploads/sign:
     post:
       tags: [Complaints]
-      summary: Get a signed upload (Cloudinary) for a complaint image. Student only.
+      summary: |
+        Get a presigned Amazon S3 PUT URL for one complaint image. Student only.
+        PUT the raw bytes to `uploadUrl` with exactly the returned `headers` (Content-Type is part of the signature), then send `publicUrl` in imageUrls.
+        503 when the upload service is not configured.
       requestBody:
         required: true
         content:
@@ -124,6 +141,7 @@ paths:
               required: [contentType]
               properties:
                 contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+                fileSize: { type: integer, minimum: 1, maximum: 5242880, description: "Optional, bytes. Max 5 MB" }
       responses:
         "200":
           description: Signed upload params
@@ -201,7 +219,11 @@ paths:
   /complaints/{id}/status:
     patch:
       tags: [Admin]
-      summary: Dept admin (own dept) or super admin changes status. REJECTED and RESOLVED require a reason/remark.
+      summary: |
+        DEPT_ADMIN of the owning department changes status. SUPER_ADMIN is READ-ONLY (403) and students get 403.
+        Allowed: PENDING -> IN_PROGRESS | REJECTED; IN_PROGRESS -> RESOLVED | REJECTED. RESOLVED/REJECTED are terminal.
+        `rowVersion` (from the last read) is required: missing/invalid -> 422, stale -> 409 CONFLICT.
+        REJECTED and RESOLVED require a remark.
       requestBody:
         required: true
         content:
@@ -227,8 +249,8 @@ paths:
     post:
       tags: [Complaints]
       summary: |
-        Add a message to the thread. Admin remarks are visible to the student.
-        Students may reply only on their own complaint.
+        DEPT_ADMIN of the owning department adds a remark visible to the student without changing status.
+        SUPER_ADMIN and students get 403 (historical STUDENT_REPLY entries may still appear in timelines).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -255,7 +277,8 @@ paths:
   /complaints/{id}/support:
     put:
       tags: [Complaints]
-      summary: Student "me too" - idempotent toggle ON. Cannot support own complaint.
+      deprecated: true
+      summary: DEFERRED (issue #4). Always 403 for now; do not build UI against it. Original intent - "me too" toggle ON.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -267,7 +290,8 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
     delete:
       tags: [Complaints]
-      summary: Remove my "me too"
+      deprecated: true
+      summary: DEFERRED (issue #4). Always 403 for now.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -465,6 +489,11 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many auth attempts (default 20/min per client IP). Code RATE_LIMITED.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     ValidationError:
       description: Body/query failed validation
       content:
@@ -482,7 +511,7 @@ components:
           properties:
             code:
               type: string
-              enum: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, VALIDATION_FAILED, INVALID_TRANSITION, INTERNAL]
+              enum: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, VALIDATION_FAILED, INVALID_TRANSITION, RATE_LIMITED, INTERNAL]
             message: { type: string }
             fields:
               type: object
@@ -503,7 +532,7 @@ components:
         Allowed transitions (enforced server-side):
         PENDING -> IN_PROGRESS | REJECTED
         IN_PROGRESS -> RESOLVED | REJECTED
-        RESOLVED / REJECTED are terminal (SUPER_ADMIN may reopen to IN_PROGRESS).
+        RESOLVED / REJECTED are terminal. SUPER_ADMIN is read-only and cannot change status.
       enum: [PENDING, IN_PROGRESS, RESOLVED, REJECTED]
 
     Priority:
@@ -568,11 +597,14 @@ components:
 
     SignedUpload:
       type: object
-      required: [uploadUrl, fields, publicUrl]
+      required: [uploadUrl, method, headers, fields, publicUrl]
       properties:
         uploadUrl: { type: string, format: uri }
-        fields: { type: object, additionalProperties: { type: string } }
+        method: { type: string, enum: [PUT], description: HTTP method to use for the upload }
+        headers: { type: object, additionalProperties: { type: string }, description: "Headers the upload request MUST send (Content-Type)" }
+        fields: { type: object, additionalProperties: { type: string }, description: "Always empty for S3 (kept for compatibility)" }
         publicUrl: { type: string, format: uri, description: Value to send back in CreateComplaintRequest.imageUrls }
+        maxFileSize: { type: integer, example: 5242880 }
 
     CreateComplaintRequest:
       type: object
@@ -587,6 +619,10 @@ components:
         imageUrls:
           type: array
           maxItems: 3
+          description: |
+            Only URLs returned by /uploads/sign for the SUBMITTING user (configured S3 bucket and the
+            user's own campusconnect/{userId}/ prefix) are accepted. The object must exist, be 1 B - 5 MiB and match its
+            content type. Other URLs -> 422.
           items: { type: string, format: uri }
         anonymousToStaff:
           type: boolean
@@ -595,9 +631,10 @@ components:
 
     UpdateStatusRequest:
       type: object
-      required: [status]
+      required: [status, rowVersion]
       properties:
         status: { $ref: "#/components/schemas/ComplaintStatus" }
+        rowVersion: { type: string, format: uuid, description: "Value of Complaint.rowVersion from your last read" }
         remark:
           type: string
           maxLength: 2000
@@ -605,9 +642,10 @@ components:
 
     Complaint:
       type: object
-      required: [id, ticket, title, category, department, status, priority, supportCount, createdAt, updatedAt, isOverdue]
+      required: [id, rowVersion, ticket, title, category, department, status, priority, supportCount, createdAt, updatedAt, isOverdue]
       properties:
         id: { type: string }
+        rowVersion: { type: string, format: uuid, description: Optimistic-concurrency token; echo it in PATCH status }
         ticket: { type: string, example: CC-2026-0042, description: Human-friendly reference }
         title: { type: string }
         description: { type: string }
