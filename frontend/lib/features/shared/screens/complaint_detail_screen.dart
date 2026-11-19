@@ -95,6 +95,10 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primary,
                             borderRadius: BorderRadius.circular(30),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: .25),
+                              width: 1.5,
+                            ),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color(0x33000000),

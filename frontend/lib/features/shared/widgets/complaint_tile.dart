@@ -60,6 +60,10 @@ final class ComplaintTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: item.category.color.withValues(alpha: .16),
+                  border: Border.all(
+                    color: item.category.color.withValues(alpha: .45),
+                    width: 1.5,
+                  ),
                 ),
                 child: Icon(item.category.icon, color: item.category.color),
               ),

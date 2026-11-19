@@ -29,7 +29,13 @@ final class ComplaintCategoryCard extends StatelessWidget {
       label: item.label,
       child: Material(
         color: background,
-        borderRadius: BorderRadius.circular(28),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+          side: BorderSide(
+            color: const Color(0xFF0F2A27).withValues(alpha: .18),
+            width: 1.5,
+          ),
+        ),
         elevation: 3,
         shadowColor: const Color(0x33000000),
         child: InkWell(

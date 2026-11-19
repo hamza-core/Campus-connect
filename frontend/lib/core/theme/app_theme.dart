@@ -56,7 +56,10 @@ abstract final class AppTheme {
         elevation: 0,
         margin: const EdgeInsets.symmetric(vertical: 5),
         shadowColor: AppColors.clayShadow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: Color(0xFFCFC9B8), width: 1.5),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -65,8 +68,8 @@ abstract final class AppTheme {
           horizontal: 18,
           vertical: 18,
         ),
-        border: border(),
-        enabledBorder: border(),
+        border: border(const Color(0xFFCFC9B8), 1.5),
+        enabledBorder: border(const Color(0xFFCFC9B8), 1.5),
         focusedBorder: border(AppColors.primary, 2),
         errorBorder: border(const Color(0xFFB91C1C), 1.5),
         focusedErrorBorder: border(const Color(0xFFB91C1C), 2),
@@ -93,7 +96,7 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         shape: const StadiumBorder(),
-        side: BorderSide.none,
+        side: const BorderSide(color: Color(0xFFCFC9B8), width: 1.5),
         backgroundColor: surface,
         selectedColor: AppColors.primary,
         checkmarkColor: AppColors.background,

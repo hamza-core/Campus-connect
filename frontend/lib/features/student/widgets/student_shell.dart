@@ -33,6 +33,7 @@ final class StudentShell extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(32),
+                border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x26000000),

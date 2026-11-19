@@ -61,6 +61,12 @@ final class StudentStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(featured ? 28 : 24),
+          border: Border.all(
+            color: featured
+                ? Colors.white.withValues(alpha: .25)
+                : foreground.withValues(alpha: .30),
+            width: 1.5,
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x1F000000),

@@ -6,7 +6,7 @@ abstract final class ClayStyle {
   static BoxDecoration decoration(Color color) => BoxDecoration(
     color: color,
     borderRadius: BorderRadius.circular(24),
-    border: kUseClay ? null : Border.all(color: AppColors.border),
+    border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
     boxShadow: kUseClay
         ? const [
             BoxShadow(
