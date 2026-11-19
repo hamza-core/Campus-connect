@@ -11,7 +11,6 @@ Baseline (owner decision, issue #1): **ASP.NET Core 10 · EF Core · SQL Server 
  └──────┬───────┘            │   └► Kestrel 127.0.0.1:5000  │──► RDS SQL Server
         │                    │      ASP.NET Core 10 API     │    (private, 1433 from EC2 SG only)
         │ signed upload      └──────────────────────────────┘
-        └──────────────────────────► Amazon S3 (images)  ◄── API presigns PUTs (instance role), verifies objects
 ```
 
 ## Decisions
@@ -28,7 +27,7 @@ Baseline (owner decision, issue #1): **ASP.NET Core 10 · EF Core · SQL Server 
 | 8 | `rowVersion` optimistic concurrency on status change | Two admins can't silently overwrite each other |
 | 9 | SUPER_ADMIN read-only | Least privilege: only the owning department resolves complaints |
 | 10 | Admins seeded; password from `SEED_PASSWORD` env | PDF needs no admin signup; repo is public, no committed secrets |
-| 11 | **Amazon S3 presigned PUT**, URL allow-list per submitting user, HeadObject verification | No file bytes through the API; no arbitrary image URLs; credentials come from an EC2 instance role (no keys) |
+| 11 | No server-side image storage for now; the app keeps photos on the device | No storage provider available; `imageUrls` is ignored; revisit later via a contract change |
 | 12 | Notifications via REST polling (30 s); SignalR optional | REST is authoritative; real-time is a bonus |
 | 13 | Forwarded headers trusted only from `TRUSTED_PROXIES` | Correct per-client rate limiting behind Nginx without allowing spoofing |
 

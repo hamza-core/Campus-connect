@@ -29,9 +29,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["JWT_SECRET"] = "integration-tests-only-secret-with-at-least-32-bytes",
             ["ConnectionStrings:DefaultConnection"] = Connection,
             ["Auth:PermitLimit"] = "1000",
-            ["CLOUDINARY_CLOUD_NAME"] = "test-cloud",
-            ["CLOUDINARY_API_KEY"] = "test-public-key",
-            ["CLOUDINARY_API_SECRET"] = "test-signing-secret",
             ["Logging:LogLevel:Default"] = "Warning"
         }));
     }

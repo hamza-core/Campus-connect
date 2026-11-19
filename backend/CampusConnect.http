@@ -223,18 +223,6 @@ GET {{baseUrl}}/admin/complaints/export.csv?category=LIBRARY&sort=newest
 Authorization: Bearer {{departmentLogin.response.body.$.token}}
 Accept: text/csv
 
-### Signed image upload — 200 when CLOUDINARY_* are configured, otherwise 500
-# Upload bytes directly to the returned uploadUrl with its fields plus multipart file.
-# Then pass the returned publicUrl in a new complaint's imageUrls array.
-# @name signUpload
-POST {{baseUrl}}/uploads/sign
-Authorization: Bearer {{studentLogin.response.body.$.token}}
-Content-Type: application/json
-
-{
-  "contentType": "image/jpeg"
-}
-
 ### SignalR negotiation — 200; use a SignalR client for handshake and live events
 # @name negotiateNotifications
 POST {{host}}/hubs/notifications/negotiate?negotiateVersion=1

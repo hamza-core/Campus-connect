@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
     Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
@@ -124,35 +124,6 @@ paths:
                 properties:
                   data: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-
-  /uploads/sign:
-    post:
-      tags: [Complaints]
-      summary: |
-        Get a presigned Amazon S3 PUT URL for one complaint image. Student only.
-        PUT the raw bytes to `uploadUrl` with exactly the returned `headers` (Content-Type is part of the signature), then send `publicUrl` in imageUrls.
-        503 when the upload service is not configured.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [contentType]
-              properties:
-                contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
-                fileSize: { type: integer, minimum: 1, maximum: 5242880, description: "Optional, bytes. Max 5 MB" }
-      responses:
-        "200":
-          description: Signed upload params
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data: { $ref: "#/components/schemas/SignedUpload" }
-        "403": { $ref: "#/components/responses/Forbidden" }
 
   /complaints:
     post:
@@ -595,17 +566,6 @@ components:
         token: { type: string, description: "JWT, 7d expiry. Sent as Authorization: Bearer <token>" }
         user: { $ref: "#/components/schemas/User" }
 
-    SignedUpload:
-      type: object
-      required: [uploadUrl, method, headers, fields, publicUrl]
-      properties:
-        uploadUrl: { type: string, format: uri }
-        method: { type: string, enum: [PUT], description: HTTP method to use for the upload }
-        headers: { type: object, additionalProperties: { type: string }, description: "Headers the upload request MUST send (Content-Type)" }
-        fields: { type: object, additionalProperties: { type: string }, description: "Always empty for S3 (kept for compatibility)" }
-        publicUrl: { type: string, format: uri, description: Value to send back in CreateComplaintRequest.imageUrls }
-        maxFileSize: { type: integer, example: 5242880 }
-
     CreateComplaintRequest:
       type: object
       required: [category, title, description]
@@ -619,10 +579,10 @@ components:
         imageUrls:
           type: array
           maxItems: 3
+          deprecated: true
           description: |
-            Only URLs returned by /uploads/sign for the SUBMITTING user (configured S3 bucket and the
-            user's own campusconnect/{userId}/ prefix) are accepted. The object must exist, be 1 B - 5 MiB and match its
-            content type. Other URLs -> 422.
+            IGNORED for now. Images are kept on the device by the app; the server stores nothing and returns `[]`.
+            (Server-side image storage was removed; see CHANGELOG 1.2.0.)
           items: { type: string, format: uri }
         anonymousToStaff:
           type: boolean
