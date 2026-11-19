@@ -8,6 +8,7 @@ final class AuthController extends BaseController {
   final AuthRepository _repository;
   AppUser? user;
   bool ready = false;
+  bool signedOut = false;
   String? sessionMessage;
   int _session = 0;
 
@@ -37,6 +38,7 @@ final class AuthController extends BaseController {
 
   Future<void> _authenticate(Future<AppUser> Function() operation) {
     final session = ++_session;
+    signedOut = false;
     sessionMessage = null;
     return run(
       operation,
@@ -50,6 +52,7 @@ final class AuthController extends BaseController {
     ++_session;
     await _repository.logout();
     user = null;
+    signedOut = true;
     sessionMessage = null;
     safeNotify();
   }
@@ -57,6 +60,7 @@ final class AuthController extends BaseController {
   void expireSession() {
     ++_session;
     user = null;
+    signedOut = false;
     sessionMessage = 'Your session expired. Please sign in again.';
     safeNotify();
   }

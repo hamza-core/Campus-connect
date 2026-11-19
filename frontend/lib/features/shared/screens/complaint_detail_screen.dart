@@ -6,14 +6,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/controllers/base_controller.dart';
 import '../../../core/storage/complaint_photo_store.dart';
 import '../../../core/utils/date_formatter.dart';
-import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../core/widgets/shimmer_list.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../di/app_scope.dart';
-import '../../../domain/enums/complaint_status.dart';
 import '../controllers/complaint_detail_controller.dart';
+import '../widgets/complaint_photo_gallery.dart';
+import '../widgets/complaint_section.dart';
+import '../widgets/department_complaint_actions.dart';
 import 'access_denied_screen.dart';
 
 final class ComplaintDetailScreen extends StatefulWidget {
@@ -125,58 +126,19 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                           padding: const EdgeInsets.only(top: 12),
                           child: Text('Submitted by ${complaint.authorName}'),
                         ),
-                      _Section(
+                      ComplaintSection(
                         title: 'Description',
                         child: SelectableText(complaint.description),
                       ),
                       if (widget.photoOwnerId case final owner?)
-                        FutureBuilder<List<Uint8List>>(
-                          future: _photos ??= ComplaintPhotoStore.instance.read(
+                        ComplaintPhotoGallery(
+                          photos: _photos ??= ComplaintPhotoStore.instance.read(
                             owner,
                             widget.id,
                           ),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasError) {
-                              return const ErrorView(
-                                message: 'Saved photos could not be opened.',
-                              );
-                            }
-                            final images = snapshot.data;
-                            if (images == null || images.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-                            return _Section(
-                              title: 'Photos saved on this device',
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final image in images)
-                                    InkWell(
-                                      onTap: () => showDialog<void>(
-                                        context: context,
-                                        builder: (context) => Dialog(
-                                          child: InteractiveViewer(
-                                            child: Image.memory(image),
-                                          ),
-                                        ),
-                                      ),
-                                      child: Image.memory(
-                                        image,
-                                        height: 92,
-                                        width: 92,
-                                        fit: BoxFit.cover,
-                                        cacheWidth: 184,
-                                        semanticLabel: 'Attached photo',
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
                         ),
                       if (complaint.timeline.any((entry) => entry.body != null))
-                        _Section(
+                        ComplaintSection(
                           title: 'Department remarks',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +152,7 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                             ],
                           ),
                         ),
-                      _Section(
+                      ComplaintSection(
                         title: 'Timeline',
                         child: Column(
                           children: [
@@ -215,57 +177,9 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                       if (controller.actionError case final message?)
                         ErrorView(message: message),
                       if (widget.canUpdate)
-                        _Section(
-                          title: 'Department actions',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              TextField(
-                                controller: _remark,
-                                maxLength: 2000,
-                                minLines: 2,
-                                maxLines: 4,
-                                enabled: !controller.saving,
-                                decoration: const InputDecoration(
-                                  labelText: 'Department remark',
-                                  helperText: 'A reason is required to resolve or reject.',
-                                  helperMaxLines: 2,
-                                ),
-                              ),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  AppButton(
-                                    label: 'Post remark',
-                                    busy: controller.saving,
-                                    onPressed: () async {
-                                      final posted = await controller.addRemark(
-                                        _remark.text,
-                                      );
-                                      if (posted && mounted) _remark.clear();
-                                    },
-                                  ),
-                                  for (final status
-                                      in complaint.allowedTransitions)
-                                    AppButton(
-                                      label: switch (status) {
-                                        ComplaintStatus.inProgress =>
-                                          'Start work',
-                                        ComplaintStatus.resolved => 'Resolve',
-                                        ComplaintStatus.rejected => 'Reject',
-                                        ComplaintStatus.pending => 'Pending',
-                                      },
-                                      busy: controller.saving,
-                                      onPressed: () => controller.update(
-                                        status,
-                                        _remark.text,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        DepartmentComplaintActions(
+                          controller: controller,
+                          remark: _remark,
                         ),
                     ],
                   ),
@@ -274,27 +188,4 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
       },
     );
   }
-}
-
-final class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child});
-  final String title;
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            child,
-          ],
-        ),
-      ),
-    ),
-  );
 }

@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/controllers/base_controller.dart';
-import '../../../core/widgets/clay_card.dart';
+import '../../../core/widgets/entrance_motion.dart';
 import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/illustration_image.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../core/widgets/shimmer_list.dart';
 import '../../../di/app_scope.dart';
 import '../../../domain/models/app_user.dart';
 import '../../shared/widgets/complaint_tile.dart';
 import '../controllers/student_dashboard_controller.dart';
+import '../widgets/student_stat.dart';
 
 final class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key, required this.user});
@@ -105,7 +105,7 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _StudentStat(
+                    StudentStat(
                       label: 'Total complaints',
                       value: stats.total,
                       image: 'total-complaints.jpg',
@@ -116,17 +116,17 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        _StudentStat(
+                        StudentStat(
                           label: 'Pending',
                           value: stats.pending,
                           image: 'pending.jpg',
                         ),
-                        _StudentStat(
+                        StudentStat(
                           label: 'In progress',
                           value: stats.inProgress,
                           image: 'in-progress.jpg',
                         ),
-                        _StudentStat(
+                        StudentStat(
                           label: 'Resolved',
                           value: stats.resolved,
                           image: 'resolved.jpg',
@@ -145,11 +145,15 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                           'Your submitted complaints will appear here.',
                         ),
                       ),
-                    for (final item in controller.recent)
-                      ComplaintTile(
-                        item: item,
-                        onTap: () =>
-                            context.push('/student/complaints/${item.id}'),
+                    for (final (index, item) in controller.recent.indexed)
+                      EntranceMotion(
+                        index: index,
+                        child: ComplaintTile(
+                          item: item,
+                          onTap: () => context.push(
+                            '/student/complaints/${Uri.encodeComponent(item.id)}',
+                          ),
+                        ),
                       ),
                   ],
                 );
@@ -157,54 +161,6 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-final class _StudentStat extends StatelessWidget {
-  const _StudentStat({
-    required this.label,
-    required this.value,
-    required this.image,
-    this.featured = false,
-  });
-  final String label;
-  final int value;
-  final String image;
-  final bool featured;
-
-  @override
-  Widget build(BuildContext context) {
-    final number = Text(
-      '$value',
-      style: Theme.of(context).textTheme.headlineMedium
-          ?.copyWith(fontWeight: FontWeight.w700),
-    );
-    return SizedBox(
-      width: featured ? null : 98,
-      child: ClayCard(
-        padding: EdgeInsets.all(featured ? 16 : 10),
-        child: featured
-            ? Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [Text(label), number],
-                    ),
-                  ),
-                  IllustrationImage(filename: image, size: 68),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  IllustrationImage(filename: image, size: 38),
-                  number,
-                  Text(label),
-                ],
-              ),
       ),
     );
   }

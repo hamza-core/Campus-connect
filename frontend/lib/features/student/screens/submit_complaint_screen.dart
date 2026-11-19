@@ -3,17 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/controllers/base_controller.dart';
 import '../../../core/storage/complaint_photo_store.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/validators.dart';
 import '../../../core/widgets/clay_button.dart';
-import '../../../core/widgets/clay_card.dart';
 import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/illustration_image.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../di/app_scope.dart';
 import '../../../domain/enums/complaint_category.dart';
-import '../../shared/widgets/complaint_tile.dart';
 import '../controllers/submit_complaint_controller.dart';
+import '../widgets/complaint_category_card.dart';
+import '../widgets/submit_complaint_form.dart';
 
 final class SubmitComplaintScreen extends StatefulWidget {
   const SubmitComplaintScreen({super.key, required this.ownerId});
@@ -140,7 +137,7 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                         for (final item in ComplaintCategory.values)
                           SizedBox(
                             width: (constraints.maxWidth - 10) / 2,
-                            child: _CategoryCard(
+                            child: ComplaintCategoryCard(
                               item: item,
                               onTap: () => setState(() => _category = item),
                             ),
@@ -149,160 +146,16 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     ),
                   ),
                 ] else
-                  _formBody(category, controller),
+                  SubmitComplaintForm(
+                    category: category,
+                    controller: controller,
+                    form: _form,
+                    title: _title,
+                    description: _description,
+                  ),
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _formBody(
-    ComplaintCategory category,
-    SubmitComplaintController controller,
-  ) => Form(
-    key: _form,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(category.label, style: Theme.of(context).textTheme.headlineMedium),
-        Text('This will be sent to ${_department(category)}.'),
-        const SizedBox(height: 20),
-        TextFormField(
-          controller: _title,
-          maxLength: 120,
-          enabled: controller.state != ViewState.loading,
-          decoration: const InputDecoration(labelText: 'Title'),
-          validator: (value) => Validators.length(value, 'Title', 5, 120),
-        ),
-        TextFormField(
-          controller: _description,
-          minLines: 4,
-          maxLines: 8,
-          maxLength: 3000,
-          enabled: controller.state != ViewState.loading,
-          decoration: const InputDecoration(
-            labelText: 'Description',
-            alignLabelWithHint: true,
-          ),
-          validator: (value) =>
-              Validators.length(value, 'Description', 20, 3000),
-        ),
-        OutlinedButton.icon(
-          icon: const Icon(Icons.add_photo_alternate_outlined),
-          label: Text('Add photos (${controller.photos.length}/3)'),
-          onPressed:
-              controller.photos.length >= 3 ||
-                  controller.picking ||
-                  controller.state == ViewState.loading
-              ? null
-              : controller.pickPhotos,
-        ),
-        const Text(
-          'Photos are saved on this device only. Staff cannot see them.',
-        ),
-        if (controller.photoMessage case final message?)
-          ErrorView(message: message),
-        if (controller.photos.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (var index = 0; index < controller.photos.length; index++)
-                  Stack(
-                    children: [
-                      Image.memory(
-                        controller.photos[index],
-                        width: 92,
-                        height: 92,
-                        fit: BoxFit.cover,
-                        cacheWidth: 184,
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: IconButton.filledTonal(
-                          tooltip: 'Remove photo ${index + 1}',
-                          icon: const Icon(Icons.close, size: 16),
-                          onPressed: () => controller.removePhoto(index),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        if (controller.errorMessage case final error?)
-          ErrorView(message: error),
-        const SizedBox(height: 16),
-        ClayButton(
-          label: 'Submit complaint',
-          busy: controller.state == ViewState.loading,
-          onPressed: controller.picking
-              ? null
-              : () {
-                  if (!_form.currentState!.validate()) return;
-                  FocusScope.of(context).unfocus();
-                  controller.submit(
-                    category,
-                    _title.text.trim(),
-                    _description.text.trim(),
-                  );
-                },
-        ),
-      ],
-    ),
-  );
-
-  String _department(ComplaintCategory category) => switch (category) {
-    ComplaintCategory.cafeteria => 'Cafeteria Administration',
-    ComplaintCategory.library => 'Library Administration',
-    ComplaintCategory.labsAndIt => 'Laboratory / IT Administration',
-    ComplaintCategory.academic => 'Teaching Manager / Academic Coordination',
-  };
-}
-
-final class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({required this.item, required this.onTap});
-  final ComplaintCategory item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final (filename, color) = switch (item) {
-      ComplaintCategory.cafeteria => ('cafeteria.jpg', AppColors.cafeteria),
-      ComplaintCategory.library => ('library.jpg', AppColors.library),
-      ComplaintCategory.labsAndIt => ('labs-it.jpg', AppColors.labsAndIt),
-      ComplaintCategory.academic => (
-        'teaching-academic.jpg',
-        AppColors.academic,
-      ),
-    };
-    return ClayCard(
-      padding: EdgeInsets.zero,
-      child: Material(
-        color: color.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                IllustrationImage(filename: filename, size: 62),
-                const SizedBox(height: 10),
-                Text(
-                  item.label,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

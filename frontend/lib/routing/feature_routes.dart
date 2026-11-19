@@ -10,47 +10,63 @@ import '../features/student/screens/student_dashboard_screen.dart';
 import '../features/student/screens/student_profile_screen.dart';
 import '../features/student/screens/submit_complaint_screen.dart';
 import '../features/student/widgets/student_shell.dart';
+import 'feature_page.dart';
 
 List<RouteBase> featureRoutes(AuthController auth) => [
   ShellRoute(
     builder: (context, state, child) =>
         StudentShell(route: state.uri.path, child: child),
     routes: [
-      GoRoute(
-        path: '/student',
-        builder: (context, state) => StudentDashboardScreen(user: auth.user!),
+      _feature(
+        '/student',
+        (state) => StudentDashboardScreen(user: auth.user!),
+        student: true,
       ),
-      GoRoute(
-        path: '/student/complaints',
-        builder: (context, state) => ComplaintListScreen(
+      _feature(
+        '/student/complaints',
+        (state) => ComplaintListScreen(
           key: ValueKey(state.uri.toString()),
           basePath: '/student/complaints',
           title: 'My complaints',
           student: true,
         ),
+        student: true,
       ),
-      GoRoute(
-        path: '/student/profile',
-        builder: (context, state) => StudentProfileScreen(auth: auth),
+      _feature(
+        '/student/profile',
+        (state) => StudentProfileScreen(auth: auth),
+        student: true,
       ),
     ],
   ),
-  GoRoute(
-    path: '/student/new',
-    builder: (context, state) => SubmitComplaintScreen(ownerId: auth.user!.id),
+  _feature(
+    '/student/new',
+    (state) => SubmitComplaintScreen(ownerId: auth.user!.id),
+    student: true,
   ),
-  GoRoute(
-    path: '/student/complaints/:id',
-    builder: (context, state) => ComplaintDetailScreen(
+  _feature(
+    '/student/complaints/:id',
+    (state) => ComplaintDetailScreen(
       key: ValueKey(state.pathParameters['id']),
       id: state.pathParameters['id']!,
       backPath: '/student/complaints',
       photoOwnerId: auth.user!.id,
     ),
+    student: true,
   ),
   _adminRoutes(auth, '/department', superAdmin: false),
   _adminRoutes(auth, '/admin', superAdmin: true),
 ];
+
+GoRoute _feature(
+  String path,
+  Widget Function(GoRouterState) build, {
+  bool student = false,
+}) => GoRoute(
+  path: path,
+  pageBuilder: (context, state) =>
+      featurePage(state, build(state), studentMotion: student),
+);
 
 ShellRoute _adminRoutes(
   AuthController auth,
@@ -66,9 +82,9 @@ ShellRoute _adminRoutes(
       child: child,
     ),
     routes: [
-      GoRoute(
-        path: base,
-        builder: (context, state) => AdminDashboardScreen(
+      _feature(
+        base,
+        (state) => AdminDashboardScreen(
           title: superAdmin
               ? 'Campus dashboard'
               : auth.user!.department?.name ?? 'Department dashboard',
@@ -76,18 +92,18 @@ ShellRoute _adminRoutes(
           showChart: superAdmin,
         ),
       ),
-      GoRoute(
-        path: complaintsPath,
-        builder: (context, state) => ComplaintListScreen(
+      _feature(
+        complaintsPath,
+        (state) => ComplaintListScreen(
           basePath: complaintsPath,
           title: superAdmin ? 'All complaints' : 'Department complaints',
           department: !superAdmin,
           superAdmin: superAdmin,
         ),
       ),
-      GoRoute(
-        path: '$complaintsPath/:id',
-        builder: (context, state) => ComplaintDetailScreen(
+      _feature(
+        '$complaintsPath/:id',
+        (state) => ComplaintDetailScreen(
           key: ValueKey(state.pathParameters['id']),
           id: state.pathParameters['id']!,
           backPath: complaintsPath,

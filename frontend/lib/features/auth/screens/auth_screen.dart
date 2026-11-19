@@ -5,10 +5,11 @@ import '../../../core/controllers/base_controller.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/clay_button.dart';
 import '../../../core/widgets/clay_card.dart';
-import '../../../core/widgets/illustration_image.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../di/app_scope.dart';
 import '../controllers/auth_controller.dart';
+import '../widgets/auth_heading.dart';
+import '../widgets/demo_accounts.dart';
 
 final class AuthScreen extends StatefulWidget {
   const AuthScreen({
@@ -57,7 +58,6 @@ final class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final register = widget.registration;
-    final palette = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -67,33 +67,7 @@ final class _AuthScreenState extends State<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: palette.primary,
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              register ? 'Create your account' : 'Welcome back',
-                              style: Theme.of(context).textTheme.headlineLarge
-                                  ?.copyWith(
-                                    color: palette.onPrimary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ),
-                          const IllustrationImage(
-                            filename: 'login-signup.jpg',
-                            size: 72,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  AuthHeading(registration: register),
                   const SizedBox(height: 16),
                   ClayCard(
                     child: Form(
@@ -114,9 +88,19 @@ final class _AuthScreenState extends State<AuthScreen> {
                                 ),
                               ],
                               selected: {register},
-                              onSelectionChanged: (value) => context.go(
-                                value.single ? '/register' : '/login',
-                              ),
+                              onSelectionChanged: (value) {
+                                final next = GoRouterState.of(context)
+                                    .uri
+                                    .queryParameters['next'];
+                                context.go(
+                                  Uri(
+                                    path: value.single ? '/register' : '/login',
+                                    queryParameters: next == null
+                                        ? null
+                                        : {'next': next},
+                                  ).toString(),
+                                );
+                              },
                             ),
                             const SizedBox(height: 16),
                             if (register) ...[
@@ -235,25 +219,7 @@ final class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   if (!register && AppScope.of(context).config.useMock)
-                    const ExpansionTile(
-                      title: Text('Demo accounts'),
-                      children: [
-                        ListTile(
-                          title: Text('Student'),
-                          subtitle: Text('ali@student.com / Ali@1234'),
-                        ),
-                        ListTile(
-                          title: Text('Department admin'),
-                          subtitle: Text(
-                            'library.admin@campus.com / Admin@1234',
-                          ),
-                        ),
-                        ListTile(
-                          title: Text('Super admin'),
-                          subtitle: Text('super.admin@campus.com / Admin@1234'),
-                        ),
-                      ],
-                    ),
+                    const DemoAccounts(),
                 ],
               ),
             ),
