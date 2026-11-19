@@ -22,6 +22,16 @@ final class ValidationException extends AppException {
   const ValidationException(super.message);
 }
 
+final class ConflictException extends AppException {
+  const ConflictException(super.message);
+}
+
+final class RateLimitException extends AppException {
+  const RateLimitException([
+    super.message = 'Too many attempts. Try again in a minute.',
+  ]);
+}
+
 final class NetworkException extends AppException {
   const NetworkException([
     super.message = 'Check your connection and try again.',

@@ -1,0 +1,13 @@
+import 'package:flutter/material.dart';
+
+final class EmptyState extends StatelessWidget {
+  const EmptyState({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Center(child: Text(message, textAlign: TextAlign.center)),
+  );
+}

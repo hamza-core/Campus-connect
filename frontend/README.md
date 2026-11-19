@@ -20,7 +20,7 @@ samples, guidance on mobile development, and a full API reference.
 
 The app uses Flutter's Android minimum SDK of 24, which also satisfies
 `flutter_secure_storage` and `image_picker_android`. The main manifest declares
-Internet access for the API and S3. Android's system picker handles image
+Internet access for the API. Android's system picker handles image
 selection without a broad storage permission.
 
 The illustration assets are bundled from `assets/illustrations/`. The splash
