@@ -1,75 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-final class StudentShell extends StatelessWidget {
+import '../../../core/widgets/floating_pill_nav.dart';
+import '../../../core/widgets/nav_action_button.dart';
+import '../../../core/widgets/nav_item_data.dart';
+
+final class StudentShell extends StatefulWidget {
   const StudentShell({super.key, required this.route, required this.child});
   final String route;
   final Widget child;
 
-  static const _tabs = ['/student', '/student/complaints', '/student/profile'];
+  static const tabs = ['/student', '/student/complaints', '/student/profile'];
+  static const newComplaint = '/student/new';
+
+  @override
+  State<StudentShell> createState() => _StudentShellState();
+}
+
+final class _StudentShellState extends State<StudentShell> {
+  static const _items = [
+    NavItemData(icon: Icons.home_outlined, label: 'Home'),
+    NavItemData(icon: Icons.format_list_bulleted_rounded, label: 'Complaints'),
+    NavItemData(icon: Icons.person_outline_rounded, label: 'Profile'),
+  ];
+
+  /// Remembers the last tab so it stays highlighted on the New Complaint screen.
+  int _lastTab = 0;
+
+  bool get _closing => widget.route == StudentShell.newComplaint;
+
+  void _open() {
+    context.push<bool>(StudentShell.newComplaint).then((changed) {
+      if (changed == true && mounted) {
+        context.go('/student/complaints?submitted=1');
+      }
+    });
+  }
+
+  void _close() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(StudentShell.tabs[_lastTab]);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final selected = _tabs.indexOf(route);
+    final tab = StudentShell.tabs.indexOf(widget.route);
+    if (tab >= 0) _lastTab = tab;
+    final heroRoute =
+        widget.route == '/student' || widget.route == '/student/profile';
     return Scaffold(
-      body: SafeArea(
-        top: route != '/student' && route != '/student/profile',
-        bottom: false,
-        child: child,
-      ),
-      floatingActionButton: FloatingActionButton(
-        key: const ValueKey('report-issue'),
-        tooltip: 'Report an issue',
-        onPressed: () => context.push<bool>('/student/new').then((changed) {
-          if (changed == true && context.mounted) {
-            context.go('/student/complaints?submitted=1');
-          }
-        }),
-        child: const Icon(Icons.add),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x26000000),
-                    blurRadius: 18,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: NavigationBar(
-                  height: 68,
-                  selectedIndex: selected < 0 ? 0 : selected,
-                  onDestinationSelected: (index) => context.go(_tabs[index]),
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.home_outlined),
-                      label: 'Dashboard',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.list_alt_outlined),
-                      label: 'Complaints',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.person_outline),
-                      label: 'Profile',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      body: SafeArea(top: !heroRoute, bottom: false, child: widget.child),
+      bottomNavigationBar: FloatingPillNav(
+        items: _items,
+        currentIndex: _lastTab,
+        onTap: (index) => context.go(StudentShell.tabs[index]),
+        trailingAction: NavActionButton(
+          key: const ValueKey('report-issue'),
+          isClosing: _closing,
+          onPressed: _closing ? _close : _open,
         ),
       ),
     );

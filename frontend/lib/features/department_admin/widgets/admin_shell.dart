@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/floating_pill_nav.dart';
+import '../../../core/widgets/nav_item_data.dart';
 import '../../auth/controllers/auth_controller.dart';
 
 final class AdminShell extends StatelessWidget {
@@ -90,20 +92,19 @@ final class AdminShell extends StatelessWidget {
                 ),
               ),
         bottomNavigationBar: mobile
-            ? NavigationBar(
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                selectedIndex: _selected,
-                onDestinationSelected: (index) => _navigate(context, index),
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.dashboard_outlined),
+            ? FloatingPillNav(
+                items: const [
+                  NavItemData(
+                    icon: Icons.dashboard_outlined,
                     label: 'Dashboard',
                   ),
-                  NavigationDestination(
-                    icon: Icon(Icons.list_alt_outlined),
+                  NavItemData(
+                    icon: Icons.format_list_bulleted_rounded,
                     label: 'Complaints',
                   ),
                 ],
+                currentIndex: _selected,
+                onTap: (index) => _navigate(context, index),
               )
             : null,
       ),

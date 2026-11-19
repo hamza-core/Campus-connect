@@ -37,12 +37,12 @@ List<RouteBase> featureRoutes(AuthController auth) => [
         (state) => StudentProfileScreen(auth: auth),
         student: true,
       ),
+      _feature(
+        '/student/new',
+        (state) => SubmitComplaintScreen(ownerId: auth.user!.id),
+        student: true,
+      ),
     ],
-  ),
-  _feature(
-    '/student/new',
-    (state) => SubmitComplaintScreen(ownerId: auth.user!.id),
-    student: true,
   ),
   _feature(
     '/student/complaints/:id',
