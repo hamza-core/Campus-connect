@@ -29,24 +29,61 @@ final class SubmitComplaintForm extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(category.label, style: Theme.of(context).textTheme.headlineMedium),
-        Text('This will be sent to ${_department(category)}.'),
-        const SizedBox(height: 20),
+        Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: category.color.withValues(alpha: .16),
+                border: Border.all(
+                  color: category.color.withValues(alpha: .45),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(category.icon, color: category.color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                category.label,
+                style: Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'This will be sent to ${_department(category)}.',
+          style: const TextStyle(color: Color(0xFF5F6B68)),
+        ),
+        const SizedBox(height: 22),
+        const _FieldLabel('Title'),
         TextFormField(
           controller: title,
           maxLength: 120,
+          textInputAction: TextInputAction.next,
+          textCapitalization: TextCapitalization.sentences,
           enabled: controller.state != ViewState.loading,
-          decoration: const InputDecoration(labelText: 'Title'),
+          decoration: const InputDecoration(
+            hintText: 'Short summary of the problem',
+            prefixIcon: Icon(Icons.title_rounded),
+          ),
           validator: (value) => Validators.length(value, 'Title', 5, 120),
         ),
+        const SizedBox(height: 8),
+        const _FieldLabel('Description'),
         TextFormField(
           controller: description,
           minLines: 4,
           maxLines: 8,
           maxLength: 3000,
+          textCapitalization: TextCapitalization.sentences,
           enabled: controller.state != ViewState.loading,
           decoration: const InputDecoration(
-            labelText: 'Description',
+            hintText: 'What happened, where and when?',
             alignLabelWithHint: true,
           ),
           validator: (value) =>
@@ -126,4 +163,19 @@ final class SubmitComplaintForm extends StatelessWidget {
     ComplaintCategory.labsAndIt => 'Laboratory / IT Administration',
     ComplaintCategory.academic => 'Teaching Manager / Academic Coordination',
   };
+}
+
+final class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.titleSmall
+          ?.copyWith(fontWeight: FontWeight.w800),
+    ),
+  );
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/clay_style.dart';
+import '../theme/app_colors.dart';
 import 'app_button.dart';
 
 final class ClayButton extends StatefulWidget {
@@ -38,7 +38,18 @@ final class _ClayButtonState extends State<ClayButton> {
         scale: _pressed && enabled && motion ? .97 : 1,
         duration: motion ? const Duration(milliseconds: 150) : Duration.zero,
         child: DecoratedBox(
-          decoration: ClayStyle.decoration(Colors.transparent),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: .28),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
+          ),
           child: AppButton(
             label: widget.label,
             onPressed: widget.onPressed,

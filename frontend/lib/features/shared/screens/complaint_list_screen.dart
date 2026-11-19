@@ -168,7 +168,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
                 controller: _search,
                 onChanged: controller.search,
                 decoration: const InputDecoration(
-                  labelText: 'Search complaints',
+                  hintText: 'Search complaints',
                   prefixIcon: Icon(Icons.search),
                 ),
               ),
@@ -195,6 +195,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
                               ),
                               selected: controller.filter.status == status,
                               labelStyle: TextStyle(
+                                fontFamily: 'Inter',
                                 fontWeight: FontWeight.w700,
                                 color: controller.filter.status == status
                                     ? theme.colorScheme.onPrimary

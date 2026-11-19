@@ -74,11 +74,31 @@ abstract final class AppTheme {
         errorBorder: border(const Color(0xFFB91C1C), 1.5),
         focusedErrorBorder: border(const Color(0xFFB91C1C), 2),
         hintStyle: const TextStyle(color: AppColors.secondaryText),
+        labelStyle: const TextStyle(color: AppColors.secondaryText),
+        floatingLabelStyle: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w700,
+        ),
+        counterStyle: const TextStyle(
+          color: AppColors.secondaryText,
+          fontSize: 12,
+        ),
+        helperStyle: const TextStyle(color: AppColors.secondaryText),
+        errorStyle: const TextStyle(
+          color: Color(0xFFB91C1C),
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIconColor: AppColors.secondaryText,
+        suffixIconColor: AppColors.secondaryText,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 56),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
@@ -88,7 +108,12 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(64, 52),
           foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.border),
+          backgroundColor: surface,
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w700,
+          ),
+          side: const BorderSide(color: Color(0xFFCFC9B8), width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
@@ -102,10 +127,12 @@ abstract final class AppTheme {
         checkmarkColor: AppColors.background,
         showCheckmark: false,
         labelStyle: const TextStyle(
+          fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           color: AppColors.text,
         ),
         secondaryLabelStyle: const TextStyle(
+          fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           color: AppColors.background,
         ),

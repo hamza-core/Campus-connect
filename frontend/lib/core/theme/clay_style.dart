@@ -7,19 +7,12 @@ abstract final class ClayStyle {
     color: color,
     borderRadius: BorderRadius.circular(24),
     border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
-    boxShadow: kUseClay
-        ? const [
-            BoxShadow(
-              color: AppColors.clayShadow,
-              offset: Offset(8, 8),
-              blurRadius: 20,
-            ),
-            BoxShadow(
-              color: Colors.white,
-              offset: Offset(-6, -6),
-              blurRadius: 16,
-            ),
-          ]
-        : null,
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.text.withValues(alpha: .07),
+        offset: const Offset(0, 8),
+        blurRadius: 22,
+      ),
+    ],
   );
 }
