@@ -1,5 +1,6 @@
 final class TokenStore {
   String? _accessToken;
+  void Function()? onExpired;
 
   String? get accessToken => _accessToken;
 
@@ -8,6 +9,9 @@ final class TokenStore {
   void clear() => _accessToken = null;
 
   void clearIfCurrent(String token) {
-    if (_accessToken == token) clear();
+    if (_accessToken == token) {
+      clear();
+      onExpired?.call();
+    }
   }
 }

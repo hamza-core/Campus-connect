@@ -39,6 +39,7 @@ final class AppDependencies {
         auth: RemoteAuthRepository(api, tokens),
         complaints: RemoteComplaintRepository(api),
         dashboard: RemoteDashboardRepository(api),
+        tokens: tokens,
       );
     } on ArgumentError {
       if (client == null) transport.close();
@@ -51,10 +52,12 @@ final class AppDependencies {
     required this.auth,
     required this.complaints,
     required this.dashboard,
+    this.tokens,
   });
 
   final AppConfig config;
   final AuthRepository auth;
   final ComplaintRepository complaints;
   final DashboardRepository dashboard;
+  final TokenStore? tokens;
 }
