@@ -58,7 +58,10 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
     super.didChangeDependencies();
     if (_controller != null) return;
     final dependencies = AppScope.of(context);
-    _controller = ComplaintListController(dependencies.complaints);
+    _controller = ComplaintListController(
+      dependencies.complaints,
+      department: widget.department,
+    );
     _controller!.refresh();
     if (widget.superAdmin) {
       dependencies.dashboard
@@ -148,9 +151,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen> {
                   selected: {_history},
                   onSelectionChanged: (value) {
                     setState(() => _history = value.single);
-                    controller.setFilter(
-                      controller.filter.copyWith(status: () => null),
-                    );
+                    controller.setDepartmentHistory(_history);
                   },
                 ),
               ],

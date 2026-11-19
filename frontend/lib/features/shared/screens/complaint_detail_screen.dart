@@ -214,10 +214,9 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                       ),
                       if (controller.actionError case final message?)
                         ErrorView(message: message),
-                      if (widget.canUpdate &&
-                          complaint.allowedTransitions.isNotEmpty)
+                      if (widget.canUpdate)
                         _Section(
-                          title: 'Update status',
+                          title: 'Department actions',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -237,6 +236,16 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
+                                  AppButton(
+                                    label: 'Post remark',
+                                    busy: controller.saving,
+                                    onPressed: () async {
+                                      final posted = await controller.addRemark(
+                                        _remark.text,
+                                      );
+                                      if (posted && mounted) _remark.clear();
+                                    },
+                                  ),
                                   for (final status
                                       in complaint.allowedTransitions)
                                     AppButton(

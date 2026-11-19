@@ -6,16 +6,25 @@ import '../../../domain/enums/complaint_category.dart';
 import '../../../domain/enums/complaint_status.dart';
 import '../../../domain/models/complaint_filter.dart';
 import '../../../domain/models/complaint_summary.dart';
+import '../../../domain/models/paged_result.dart';
+import 'department_complaint_pages.dart';
 
 final class ComplaintListController extends BaseController {
-  ComplaintListController(this._repository);
+  ComplaintListController(this._repository, {bool department = false})
+    : _history = department ? false : null;
   final ComplaintRepository _repository;
   final _debouncer = Debouncer();
   final _cache =
       <
-        (String, ComplaintCategory?, ComplaintStatus?, String?),
+        (String, ComplaintCategory?, ComplaintStatus?, String?, bool?),
         (List<ComplaintSummary>, int, bool)
       >{};
+  final _departmentPages =
+      <
+        (String, ComplaintCategory?, ComplaintStatus?, String?, bool?),
+        DepartmentComplaintPages
+      >{};
+  bool? _history;
   ComplaintFilter filter = const ComplaintFilter();
   List<ComplaintSummary> items = const [];
   bool loadingMore = false;
@@ -24,8 +33,37 @@ final class ComplaintListController extends BaseController {
   int _page = 1;
   int _generation = 0;
 
-  (String, ComplaintCategory?, ComplaintStatus?, String?) get _key =>
-      (filter.search, filter.category, filter.status, filter.departmentId);
+  (String, ComplaintCategory?, ComplaintStatus?, String?, bool?) get _key => (
+    filter.search,
+    filter.category,
+    filter.status,
+    filter.departmentId,
+    _history,
+  );
+
+  Future<void> setDepartmentHistory(bool value) {
+    _history = value;
+    return setFilter(filter.copyWith(status: () => null));
+  }
+
+  Future<PagedResult<ComplaintSummary>> _listPage(int page) {
+    final history = _history;
+    if (history == null || filter.status != null) {
+      return _repository.list(filter: filter, page: page);
+    }
+    return _departmentPages
+        .putIfAbsent(
+          _key,
+          () => DepartmentComplaintPages(
+            _repository,
+            filter,
+            history
+                ? const [ComplaintStatus.resolved, ComplaintStatus.rejected]
+                : const [ComplaintStatus.pending, ComplaintStatus.inProgress],
+          ),
+        )
+        .list(page);
+  }
 
   void search(String value) => _debouncer.schedule(
     () => setFilter(filter.copyWith(search: value.trim())),
@@ -38,16 +76,18 @@ final class ComplaintListController extends BaseController {
 
   Future<void> refresh({bool useCache = false}) async {
     final generation = ++_generation;
-    if (!useCache) _cache.clear();
+    if (!useCache) {
+      _cache.clear();
+      _departmentPages.clear();
+    }
     final key = _key;
-    final requested = filter;
     final cached = useCache ? _cache[key] : null;
     loadingMore = false;
     pageError = null;
     await run(
       () async {
         if (cached != null) return cached;
-        final result = await _repository.list(filter: requested);
+        final result = await _listPage(1);
         return (result.items, result.page, result.hasNextPage);
       },
       isEmpty: (value) => value.$1.isEmpty,
@@ -68,7 +108,7 @@ final class ComplaintListController extends BaseController {
     pageError = null;
     safeNotify();
     try {
-      final result = await _repository.list(filter: filter, page: _page + 1);
+      final result = await _listPage(_page + 1);
       if (generation != _generation) return;
       final seen = items.map((item) => item.id).toSet();
       items = List.unmodifiable([

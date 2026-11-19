@@ -11,4 +11,5 @@ abstract final class ApiEndpoints {
   static String complaint(String id) =>
       '$complaints/${Uri.encodeComponent(id)}';
   static String complaintStatus(String id) => '${complaint(id)}/status';
+  static String complaintComments(String id) => '${complaint(id)}/comments';
 }

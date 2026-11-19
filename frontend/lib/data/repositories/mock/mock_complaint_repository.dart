@@ -113,6 +113,36 @@ final class MockComplaintRepository implements ComplaintRepository {
   }
 
   @override
+  Future<void> addRemark(String id, String body) async {
+    final user = _auth.requiredUser;
+    if (user.role != UserRole.departmentAdmin) throw const ForbiddenException();
+    final record = _load(id, user);
+    final previous = record.complaint;
+    final message = body.trim();
+    if (message.isEmpty || message.length > 2000) {
+      throw const ValidationException(
+        'Enter a remark of up to 2000 characters.',
+      );
+    }
+    final version = _newVersion();
+    record.complaint = previous.copyWith(
+      rowVersion: version,
+      allowedTransitions: _transitions(previous.summary.status, user),
+      timeline: [
+        ...previous.timeline,
+        TimelineEntry(
+          id: version,
+          type: 'REMARK',
+          createdAt: _clock().toUtc(),
+          actorName: user.name,
+          actorRole: user.role,
+          body: message,
+        ),
+      ],
+    );
+  }
+
+  @override
   Future<Complaint> submit({
     required ComplaintCategory category,
     required String title,

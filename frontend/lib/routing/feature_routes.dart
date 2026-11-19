@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/controllers/auth_controller.dart';
+import '../features/department_admin/screens/admin_dashboard_screen.dart';
+import '../features/department_admin/widgets/admin_shell.dart';
 import '../features/shared/screens/complaint_detail_screen.dart';
 import '../features/shared/screens/complaint_list_screen.dart';
 import '../features/student/screens/student_dashboard_screen.dart';
@@ -46,17 +48,50 @@ List<RouteBase> featureRoutes(AuthController auth) => [
       photoOwnerId: auth.user!.id,
     ),
   ),
-  for (final path in ['/department', '/admin'])
-    GoRoute(
-      path: path,
-      builder: (context, state) => Scaffold(
-        appBar: AppBar(title: const Text('CampusConnect')),
-        body: Center(
-          child: TextButton(
-            onPressed: auth.signOut,
-            child: const Text('Log out'),
-          ),
+  ShellRoute(
+    builder: (context, state, child) => AdminShell(
+      auth: auth,
+      basePath: '/department',
+      route: state.uri.path,
+      child: child,
+    ),
+    routes: [
+      GoRoute(
+        path: '/department',
+        builder: (context, state) => AdminDashboardScreen(
+          title: auth.user!.department?.name ?? 'Department dashboard',
+          complaintsPath: '/department/complaints',
+        ),
+      ),
+      GoRoute(
+        path: '/department/complaints',
+        builder: (context, state) => const ComplaintListScreen(
+          basePath: '/department/complaints',
+          title: 'Department complaints',
+          department: true,
+        ),
+      ),
+      GoRoute(
+        path: '/department/complaints/:id',
+        builder: (context, state) => ComplaintDetailScreen(
+          key: ValueKey(state.pathParameters['id']),
+          id: state.pathParameters['id']!,
+          backPath: '/department/complaints',
+          canUpdate: true,
+        ),
+      ),
+    ],
+  ),
+  GoRoute(
+    path: '/admin',
+    builder: (context, state) => Scaffold(
+      appBar: AppBar(title: const Text('CampusConnect')),
+      body: Center(
+        child: TextButton(
+          onPressed: auth.signOut,
+          child: const Text('Log out'),
         ),
       ),
     ),
+  ),
 ];

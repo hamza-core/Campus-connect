@@ -40,6 +40,15 @@ final class RemoteComplaintRepository implements ComplaintRepository {
   }
 
   @override
+  Future<void> addRemark(String id, String body) async {
+    await _api.request(
+      'POST',
+      ApiEndpoints.complaintComments(id),
+      body: {'body': body},
+    );
+  }
+
+  @override
   Future<Complaint> submit({
     required ComplaintCategory category,
     required String title,

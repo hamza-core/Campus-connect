@@ -14,6 +14,8 @@ abstract interface class ComplaintRepository {
 
   Future<Complaint> detail(String id);
 
+  Future<void> addRemark(String id, String body);
+
   Future<Complaint> submit({
     required ComplaintCategory category,
     required String title,

@@ -65,4 +65,34 @@ final class ComplaintDetailController extends BaseController {
       safeNotify();
     }
   }
+
+  Future<bool> addRemark(String text) async {
+    if (saving || complaint == null) return false;
+    final message = text.trim();
+    if (message.isEmpty) {
+      actionError = 'Enter a remark before posting.';
+      safeNotify();
+      return false;
+    }
+    saving = true;
+    actionError = null;
+    safeNotify();
+    try {
+      await _repository.addRemark(id, message);
+      await load();
+      if (errorMessage != null && !forbidden) {
+        actionError = 'Remark posted. Reload the complaint to see it.';
+      }
+      return true;
+    } on ForbiddenException {
+      forbidden = true;
+      return false;
+    } on AppException catch (error) {
+      actionError = error.message;
+      return false;
+    } finally {
+      saving = false;
+      safeNotify();
+    }
+  }
 }
