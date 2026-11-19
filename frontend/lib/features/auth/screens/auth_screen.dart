@@ -68,12 +68,14 @@ final class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final register = widget.registration;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AuthHeading(registration: register),
+            AuthHeading(registration: register, compact: keyboardOpen),
             Transform.translate(
               offset: const Offset(0, -36),
               child: ResponsiveCenter(
@@ -87,6 +89,29 @@ final class _AuthScreenState extends State<AuthScreen> {
                         child: Form(
                           key: _form,
                           child: AutofillGroup(child: _fields(register)),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Center(
+                        child: TextButton(
+                          onPressed: () => _switchTo(!register),
+                          child: Text(
+                            register
+                                ? 'Already have an account? Log in'
+                                : 'New here? Create an account',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(8, 0, 8, 24),
+                        child: Text(
+                          'Department and campus administrators sign in with the account provided by the university.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF5F6B68),
+                          ),
                         ),
                       ),
                       if (!register && AppScope.of(context).config.useMock)
@@ -151,6 +176,7 @@ final class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
         ),
+        textInputAction: register ? TextInputAction.next : TextInputAction.done,
         validator: register
             ? Validators.password
             : (value) => (value ?? '').isEmpty ? 'Enter your password.' : null,
@@ -160,6 +186,7 @@ final class _AuthScreenState extends State<AuthScreen> {
                 if (widget.controller.state != ViewState.loading) _submit();
               },
       ),
+      if (register) PasswordChecklist(controller: _password),
       if (register) ...[
         const SizedBox(height: 12),
         TextFormField(
@@ -169,6 +196,10 @@ final class _AuthScreenState extends State<AuthScreen> {
             hintText: 'Confirm password',
             prefixIcon: Icon(Icons.lock_outline),
           ),
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) {
+            if (widget.controller.state != ViewState.loading) _submit();
+          },
           validator: (value) =>
               value != _password.text ? 'Passwords must match.' : null,
         ),
