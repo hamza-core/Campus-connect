@@ -48,50 +48,52 @@ List<RouteBase> featureRoutes(AuthController auth) => [
       photoOwnerId: auth.user!.id,
     ),
   ),
-  ShellRoute(
+  _adminRoutes(auth, '/department', superAdmin: false),
+  _adminRoutes(auth, '/admin', superAdmin: true),
+];
+
+ShellRoute _adminRoutes(
+  AuthController auth,
+  String base, {
+  required bool superAdmin,
+}) {
+  final complaintsPath = '$base/complaints';
+  return ShellRoute(
     builder: (context, state, child) => AdminShell(
       auth: auth,
-      basePath: '/department',
+      basePath: base,
       route: state.uri.path,
       child: child,
     ),
     routes: [
       GoRoute(
-        path: '/department',
+        path: base,
         builder: (context, state) => AdminDashboardScreen(
-          title: auth.user!.department?.name ?? 'Department dashboard',
-          complaintsPath: '/department/complaints',
+          title: superAdmin
+              ? 'Campus dashboard'
+              : auth.user!.department?.name ?? 'Department dashboard',
+          complaintsPath: complaintsPath,
+          showChart: superAdmin,
         ),
       ),
       GoRoute(
-        path: '/department/complaints',
-        builder: (context, state) => const ComplaintListScreen(
-          basePath: '/department/complaints',
-          title: 'Department complaints',
-          department: true,
+        path: complaintsPath,
+        builder: (context, state) => ComplaintListScreen(
+          basePath: complaintsPath,
+          title: superAdmin ? 'All complaints' : 'Department complaints',
+          department: !superAdmin,
+          superAdmin: superAdmin,
         ),
       ),
       GoRoute(
-        path: '/department/complaints/:id',
+        path: '$complaintsPath/:id',
         builder: (context, state) => ComplaintDetailScreen(
           key: ValueKey(state.pathParameters['id']),
           id: state.pathParameters['id']!,
-          backPath: '/department/complaints',
-          canUpdate: true,
+          backPath: complaintsPath,
+          canUpdate: !superAdmin,
         ),
       ),
     ],
-  ),
-  GoRoute(
-    path: '/admin',
-    builder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('CampusConnect')),
-      body: Center(
-        child: TextButton(
-          onPressed: auth.signOut,
-          child: const Text('Log out'),
-        ),
-      ),
-    ),
-  ),
-];
+  );
+}

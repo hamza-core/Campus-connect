@@ -5,6 +5,8 @@ import '../../../core/controllers/base_controller.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/shimmer_list.dart';
 import '../../../di/app_scope.dart';
+import '../../../domain/models/department_stat.dart';
+import '../../super_admin/widgets/department_complaint_chart.dart';
 import '../controllers/admin_dashboard_controller.dart';
 
 final class AdminDashboardScreen extends StatefulWidget {
@@ -12,9 +14,11 @@ final class AdminDashboardScreen extends StatefulWidget {
     super.key,
     required this.title,
     required this.complaintsPath,
+    this.showChart = false,
   });
   final String title;
   final String complaintsPath;
+  final bool showChart;
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -22,12 +26,24 @@ final class AdminDashboardScreen extends StatefulWidget {
 
 final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   AdminDashboardController? _controller;
+  Future<List<DepartmentStat>>? _departments;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controller ??= AdminDashboardController(AppScope.of(context).dashboard)
       ..load();
+    if (widget.showChart) {
+      _departments ??= AppScope.of(context).dashboard.byDepartment();
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (widget.showChart) {
+      final request = AppScope.of(context).dashboard.byDepartment();
+      setState(() => _departments = request);
+    }
+    await _controller!.load();
   }
 
   @override
@@ -41,7 +57,7 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final controller = _controller!;
     final textTheme = Theme.of(context).textTheme;
     return RefreshIndicator(
-      onRefresh: controller.load,
+      onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
@@ -119,6 +135,26 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               );
             },
           ),
+          if (widget.showChart) ...[
+            const SizedBox(height: 16),
+            FutureBuilder<List<DepartmentStat>>(
+              future: _departments,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const ShimmerList();
+                }
+                if (snapshot.hasError) {
+                  return ErrorView(
+                    message: 'Could not load department complaint counts.',
+                    onRetry: _refresh,
+                  );
+                }
+                return DepartmentComplaintChart(
+                  departments: snapshot.data ?? const [],
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
