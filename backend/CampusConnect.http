@@ -1,0 +1,296 @@
+# CampusConnect API — VS Code REST Client / Visual Studio HTTP editor.
+# First seed and start the API using README.md, then run requests from top to bottom.
+# Login responses supply tokens; createComplaint supplies the ID for later requests.
+# Re-run createComplaint before repeating the status/feedback lifecycle.
+# Demo credentials below are for the explicit local demo seed only.
+@host = http://localhost:4000
+@baseUrl = {{host}}/api/v1
+@demoPassword = {{$processEnv SEED_PASSWORD}}
+
+### Liveness — 200 (public)
+# @name health
+GET {{baseUrl}}/health
+Accept: application/json
+
+### Category routing metadata — 200 (public)
+# @name categories
+GET {{baseUrl}}/meta/categories
+Accept: application/json
+
+### Student login — 200, unwrapped token/user response
+# @name studentLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@campusconnect.edu",
+  "password": "{{demoPassword}}"
+}
+
+### Library administrator login — 200
+# @name departmentLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "library@campusconnect.edu",
+  "password": "{{demoPassword}}"
+}
+
+### Super administrator login — 200
+# @name superLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "super@campusconnect.edu",
+  "password": "{{demoPassword}}"
+}
+
+### Register a student — 201 (409 if this email was already registered)
+# Change the email before repeating. Registration can never create an administrator.
+# @name registerStudent
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "HTTP Demo Student",
+  "email": "http.demo@campusconnect.edu",
+  "password": "{{demoPassword}}",
+  "studentId": "BIIT-HTTP-001"
+}
+
+### Current student — 200
+# @name currentUser
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Create a library complaint — 201; department assigned by the server
+# @name createComplaint
+POST {{baseUrl}}/complaints
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "category": "LIBRARY",
+  "subIssue": "Insufficient seating or study space",
+  "title": "Insufficient seating in the library",
+  "description": "The library study area has several damaged chairs and not enough usable seats.",
+  "priority": "HIGH",
+  "location": "Library, first floor",
+  "imageUrls": [],
+  "anonymousToStaff": true
+}
+
+### My complaints — 200; only the authenticated student's records
+# @name myComplaints
+GET {{baseUrl}}/complaints?page=1&pageSize=20&sort=newest
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Department inbox — 200; only library records
+# @name departmentComplaints
+GET {{baseUrl}}/complaints?category=LIBRARY&status=PENDING&priority=HIGH&overdue=false&sort=priority&page=1&pageSize=20
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+
+### Super administrator search — 200; optional department filter
+# @name searchComplaints
+GET {{baseUrl}}/complaints?departmentId={{departmentLogin.response.body.$.user.department.id}}&q=library&sort=mostSupported&page=1&pageSize=20
+Authorization: Bearer {{superLogin.response.body.$.token}}
+
+### Complaint detail and timeline — 200
+# @name complaintDetail
+GET {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Department view — 200; author hidden when anonymousToStaff is true
+# @name departmentDetail
+GET {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+
+### Start handling — 200 (PENDING -> IN_PROGRESS)
+# @name startComplaint
+PATCH {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/status
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS",
+  "remark": "Library staff are checking the damaged chairs."
+}
+
+### Department remark — 201
+# @name departmentComment
+POST {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/comments
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "body": "Replacement chairs have been requested."
+}
+
+### Student reply — 403 (department-admin-only remarks)
+# @name studentReply
+POST {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/comments
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "body": "Thank you. The damaged chairs are beside the east windows."
+}
+
+### Refresh the version after status/comment changes
+# @name refreshBeforeResolution
+GET {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+
+### Validation check: resolution without a remark — 422
+# @name invalidResolution
+PATCH {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/status
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "RESOLVED",
+  "rowVersion": "{{refreshBeforeResolution.response.body.$.data.rowVersion}}"
+}
+
+### Resolve — 200 (IN_PROGRESS -> RESOLVED; remark required)
+# @name resolveComplaint
+PATCH {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/status
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "RESOLVED",
+  "rowVersion": "{{refreshBeforeResolution.response.body.$.data.rowVersion}}",
+  "remark": "Damaged chairs have been replaced and additional seats installed."
+}
+
+### Resolution feedback — 201; owner only, once per resolved complaint
+# @name resolutionFeedback
+POST {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/feedback
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "rating": 5,
+  "comment": "The seating problem has been resolved."
+}
+
+### Notifications — 200; caller only
+# @name notifications
+GET {{baseUrl}}/notifications?unreadOnly=true
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Mark notifications read — 204, no response body
+# @name readAllNotifications
+POST {{baseUrl}}/notifications/read-all
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### System summary — 200; super administrator
+# @name systemSummary
+GET {{baseUrl}}/analytics/summary
+Authorization: Bearer {{superLogin.response.body.$.token}}
+
+### Department summary — 200; always scoped to the administrator's department
+# @name departmentSummary
+GET {{baseUrl}}/analytics/summary?departmentId={{departmentLogin.response.body.$.user.department.id}}
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+
+### Complaints per department — 200
+# @name departmentChart
+GET {{baseUrl}}/analytics/by-department
+Authorization: Bearer {{superLogin.response.body.$.token}}
+
+### Complaints per status — 200
+# @name statusChart
+GET {{baseUrl}}/analytics/by-status
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+
+### Daily complaint trend — 200 (days 1–90)
+# @name trendChart
+GET {{baseUrl}}/analytics/trend?days=14
+Authorization: Bearer {{superLogin.response.body.$.token}}
+
+### Recurring issue clusters — 200
+# @name recurringIssues
+GET {{baseUrl}}/analytics/recurring
+Authorization: Bearer {{superLogin.response.body.$.token}}
+
+### Scoped CSV export — 200, text/csv
+# @name exportComplaints
+GET {{baseUrl}}/admin/complaints/export.csv?category=LIBRARY&sort=newest
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+Accept: text/csv
+
+### Signed image upload — 200 when CLOUDINARY_* are configured, otherwise 500
+# Upload bytes directly to the returned uploadUrl with its fields plus multipart file.
+# Then pass the returned publicUrl in a new complaint's imageUrls array.
+# @name signUpload
+POST {{baseUrl}}/uploads/sign
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "contentType": "image/jpeg"
+}
+
+### SignalR negotiation — 200; use a SignalR client for handshake and live events
+# @name negotiateNotifications
+POST {{host}}/hubs/notifications/negotiate?negotiateVersion=1
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Support another student's complaint — currently 403, contract decision pending
+# demo-001 belongs to student2 in the explicit demo seed.
+# @name supportComplaint
+PUT {{baseUrl}}/complaints/demo-001/support
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Remove support — currently 403 under the same privacy restriction
+# @name removeSupport
+DELETE {{baseUrl}}/complaints/demo-001/support
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Authorization check: student cannot read another student's complaint — 403
+# @name forbiddenStudentRead
+GET {{baseUrl}}/complaints/demo-001
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+
+### Authorization check: library admin cannot read a Lab/IT complaint — 403
+# @name forbiddenDepartmentRead
+GET {{baseUrl}}/complaints/demo-002
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+
+### Authorization check: students cannot change status — 403
+# @name forbiddenStudentStatus
+PATCH {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/status
+Authorization: Bearer {{studentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS",
+  "rowVersion": "{{departmentDetail.response.body.$.data.rowVersion}}"
+}
+
+### Super administrator cannot reopen a complaint — 403
+# @name reopenComplaint
+PATCH {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/status
+Authorization: Bearer {{superLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS",
+  "remark": "Reopened to inspect an additional damaged chair."
+}
+
+### Resolved complaints are terminal — 409 (refresh current version first)
+# @name rejectComplaint
+PATCH {{baseUrl}}/complaints/{{createComplaint.response.body.$.data.id}}/status
+Authorization: Bearer {{departmentLogin.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "status": "REJECTED",
+  "rowVersion": "{{resolveComplaint.response.body.$.data.rowVersion}}",
+  "remark": "The remaining request duplicates an existing maintenance ticket."
+}

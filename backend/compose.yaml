@@ -1,0 +1,27 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD}
+    ports:
+      - "127.0.0.1:1433:1433"
+    volumes:
+      - campus-sql:/var/opt/mssql
+  api:
+    build: .
+    environment:
+      ASPNETCORE_URLS: http://+:5080
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection:?Set a SQL authentication connection string}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    ports:
+      - "127.0.0.1:5080:5080"
+    depends_on:
+      - sqlserver
+volumes:
+  campus-sql:

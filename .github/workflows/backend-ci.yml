@@ -1,0 +1,56 @@
+name: Backend CI
+on:
+  push:
+    paths: ['backend/**', 'contract/**', '.github/workflows/backend-ci.yml']
+  pull_request:
+    paths: ['backend/**', 'contract/**', '.github/workflows/backend-ci.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: 'Ci_Only_Strong_Pass123!'
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ci_Only_Strong_Pass123!' -C -Q 'SELECT 1' -b"
+          --health-interval=10s --health-timeout=5s --health-retries=20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      TEST_DATABASE_URL: 'Server=localhost,1433;User Id=sa;Password=Ci_Only_Strong_Pass123!;TrustServerCertificate=true'
+      JWT_SECRET: ci-only-signing-key-with-at-least-32-bytes
+      ConnectionStrings__DefaultConnection: 'Server=localhost,1433;Database=CampusConnect_Design;User Id=sa;Password=Ci_Only_Strong_Pass123!;TrustServerCertificate=true;Encrypt=true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: 'backend/**/packages.lock.json'
+      - run: dotnet tool restore
+      - run: dotnet restore CampusConnect.sln --locked-mode
+      - run: dotnet build CampusConnect.sln -c Release --no-restore
+      - run: dotnet ef migrations has-pending-model-changes --project src/CampusConnect.Api --no-build --configuration Release
+      - run: dotnet test CampusConnect.sln -c Release --no-build --logger trx --results-directory TestResults
+      - run: dotnet publish src/CampusConnect.Api -c Release --no-build --no-restore -o publish
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: backend/TestResults
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-api
+          path: backend/publish
