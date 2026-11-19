@@ -18,69 +18,104 @@ final class ComplaintFilters extends StatelessWidget {
     listenable: controller,
     builder: (context, child) {
       if (MediaQuery.sizeOf(context).width < 600) {
+        final active =
+            (controller.filter.category != null ? 1 : 0) +
+            (controller.filter.departmentId != null ? 1 : 0);
         return OutlinedButton.icon(
           icon: const Icon(Icons.filter_list),
-          label: const Text('Filters'),
+          label: Text(active == 0 ? 'Filters' : 'Filters ($active)'),
           onPressed: () => showModalBottomSheet<void>(
             context: context,
+            isScrollControlled: true,
+            showDragHandle: true,
             builder: (context) => SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  4,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
                 child: ListenableBuilder(
                   listenable: controller,
-                  builder: (context, child) => _filterControls(controller),
+                  builder: (context, child) =>
+                      _filterControls(controller, compact: true),
                 ),
               ),
             ),
           ),
         );
       }
-      return _filterControls(controller);
+      return _filterControls(controller, compact: false);
     },
   );
 
-  Widget _filterControls(ComplaintListController controller) => Wrap(
-    spacing: 12,
-    runSpacing: 8,
-    children: [
-      SizedBox(
-        width: 240,
-        child: DropdownButton<ComplaintCategory>(
-          isExpanded: true,
-          value: controller.filter.category,
-          hint: const Text('All categories'),
-          items: [
-            const DropdownMenuItem(child: Text('All categories')),
-            for (final category in ComplaintCategory.values)
-              DropdownMenuItem(
-                value: category,
-                child: Text(category.label, overflow: TextOverflow.ellipsis),
-              ),
-          ],
-          onChanged: (value) => controller.setFilter(
-            controller.filter.copyWith(category: () => value),
-          ),
-        ),
+  Widget _dropdown<T>({
+    required T? value,
+    required String hint,
+    required String allLabel,
+    required Map<T, String> options,
+    required ValueChanged<T?> onChanged,
+  }) => InputDecorator(
+    decoration: const InputDecoration(
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<T?>(
+        isExpanded: true,
+        borderRadius: BorderRadius.circular(18),
+        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+        value: value,
+        hint: Text(hint),
+        items: [
+          DropdownMenuItem<T?>(value: null, child: Text(allLabel)),
+          for (final entry in options.entries)
+            DropdownMenuItem<T?>(
+              value: entry.key,
+              child: Text(entry.value, overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        onChanged: onChanged,
       ),
-      SizedBox(
-        width: 270,
-        child: DropdownButton<String>(
-          isExpanded: true,
-          value: controller.filter.departmentId,
-          hint: const Text('All departments'),
-          items: [
-            const DropdownMenuItem(child: Text('All departments')),
-            for (final (id, name) in departments)
-              DropdownMenuItem(
-                value: id,
-                child: Text(name, overflow: TextOverflow.ellipsis),
-              ),
-          ],
-          onChanged: (value) => controller.setFilter(
-            controller.filter.copyWith(departmentId: () => value),
-          ),
-        ),
-      ),
-    ],
+    ),
   );
+
+  Widget _filterControls(
+    ComplaintListController controller, {
+    required bool compact,
+  }) {
+    final category = _dropdown<ComplaintCategory>(
+      value: controller.filter.category,
+      hint: 'All categories',
+      allLabel: 'All categories',
+      options: {for (final c in ComplaintCategory.values) c: c.label},
+      onChanged: (value) => controller.setFilter(
+        controller.filter.copyWith(category: () => value),
+      ),
+    );
+    final department = _dropdown<String>(
+      value: controller.filter.departmentId,
+      hint: 'All departments',
+      allLabel: 'All departments',
+      options: {for (final (id, name) in departments) id: name},
+      onChanged: (value) => controller.setFilter(
+        controller.filter.copyWith(departmentId: () => value),
+      ),
+    );
+    if (compact) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [category, const SizedBox(height: 12), department],
+      );
+    }
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        SizedBox(width: 260, child: category),
+        SizedBox(width: 300, child: department),
+      ],
+    );
+  }
 }

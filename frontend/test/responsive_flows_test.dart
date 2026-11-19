@@ -99,6 +99,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(1), 'Admin@1234');
       final submit = find.widgetWithText(FilledButton, 'Log in');
       await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
       await tester.tap(submit);
       await tester.pumpAndSettle();
       expect(find.text('Access denied'), findsOneWidget);
@@ -129,6 +130,7 @@ void main() {
       );
       final submit = find.widgetWithText(FilledButton, 'Submit complaint');
       await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
       await tester.tap(submit);
       await tester.pumpAndSettle();
       expect(find.text('Complaint submitted'), findsOneWidget);

@@ -146,6 +146,7 @@ final class _FloatingPillNavState extends State<FloatingPillNav> {
     Widget nav = Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Center(
+        heightFactor: 1,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Row(
