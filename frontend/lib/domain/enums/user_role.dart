@@ -5,4 +5,7 @@ enum UserRole {
 
   const UserRole(this.apiValue);
   final String apiValue;
+
+  static UserRole fromApiValue(String value) =>
+      values.firstWhere((entry) => entry.apiValue == value);
 }

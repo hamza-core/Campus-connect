@@ -6,4 +6,7 @@ enum ComplaintCategory {
 
   const ComplaintCategory(this.apiValue);
   final String apiValue;
+
+  static ComplaintCategory fromApiValue(String value) =>
+      values.firstWhere((entry) => entry.apiValue == value);
 }
