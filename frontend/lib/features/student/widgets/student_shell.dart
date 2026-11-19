@@ -12,7 +12,11 @@ final class StudentShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = _tabs.indexOf(route);
     return Scaffold(
-      body: SafeArea(bottom: false, child: child),
+      body: SafeArea(
+        top: route != '/student' && route != '/student/profile',
+        bottom: false,
+        child: child,
+      ),
       floatingActionButton: FloatingActionButton(
         key: const ValueKey('report-issue'),
         tooltip: 'Report an issue',

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/controllers/base_controller.dart';
 import '../../../core/storage/complaint_photo_store.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/responsive_center.dart';
 import '../../../core/widgets/shimmer_list.dart';
@@ -14,6 +13,7 @@ import '../../../di/app_scope.dart';
 import '../controllers/complaint_detail_controller.dart';
 import '../widgets/complaint_photo_gallery.dart';
 import '../widgets/complaint_section.dart';
+import '../widgets/complaint_timeline.dart';
 import '../widgets/department_complaint_actions.dart';
 import 'access_denied_screen.dart';
 
@@ -178,37 +178,23 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                         ComplaintSection(
                           title: 'Department remarks',
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               for (final entry in complaint.timeline)
                                 if (entry.body case final body?)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Text(body),
+                                  DepartmentReply(
+                                    departmentName:
+                                        complaint.summary.department.name,
+                                    message: body,
                                   ),
                             ],
                           ),
                         ),
                       ComplaintSection(
                         title: 'Timeline',
-                        child: Column(
-                          children: [
-                            for (final entry in complaint.timeline)
-                              ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                leading: const Icon(Icons.check_circle_outline),
-                                title: Text(
-                                  entry.toStatus?.label ??
-                                      (entry.type == 'REMARK'
-                                          ? 'Remark added'
-                                          : 'Submitted'),
-                                ),
-                                subtitle: Text(
-                                  '${DateFormatter.date(entry.createdAt)}${entry.actorName == null ? '' : ' · ${entry.actorName}'}',
-                                ),
-                              ),
-                          ],
+                        child: ComplaintTimeline(
+                          entries: complaint.timeline,
+                          departmentName: complaint.summary.department.name,
                         ),
                       ),
                       if (controller.actionError case final message?)

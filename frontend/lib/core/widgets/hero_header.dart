@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Dark-green hero area with a dot pattern and soft circles, as in the
 /// CampusConnect mobile UI design. Extends under the status bar.
@@ -18,18 +19,23 @@ final class HeroHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     final top = MediaQuery.paddingOf(context).top;
-    return ClipRRect(
-      borderRadius: BorderRadius.vertical(
-        bottom: Radius.circular(bottomRadius),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
       ),
-      child: Stack(
-        children: [
-          Positioned.fill(child: CustomPaint(painter: _HeroPainter(primary))),
-          Padding(
-            padding: EdgeInsets.only(top: top),
-            child: Padding(padding: padding, child: child),
-          ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(bottomRadius),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(child: CustomPaint(painter: _HeroPainter(primary))),
+            Padding(
+              padding: EdgeInsets.only(top: top),
+              child: Padding(padding: padding, child: child),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -91,6 +91,7 @@ final class AdminShell extends StatelessWidget {
               ),
         bottomNavigationBar: mobile
             ? NavigationBar(
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 selectedIndex: _selected,
                 onDestinationSelected: (index) => _navigate(context, index),
                 destinations: const [
