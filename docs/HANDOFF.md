@@ -1,6 +1,14 @@
 # HANDOFF LOG (append-only, newest on top)
 
-Format: `### YYYY-MM-DD HH:MM · From → To · BLOCKING|FYI`
+Format: `### 2026-11-19 14:40 · Owner (Claude) → Frontend · FYI — BACKEND IS LIVE
+- **Base URL:** `http://13.53.165.254/api/v1` (health: `/health` → `{"status":"ok"}`). HTTP only for now → Android needs `android:usesCleartextTraffic="true"`; iOS needs an ATS exception. The IP can change if the server restarts (Elastic IP not attached yet) — keep the URL in ONE build-time setting.
+- **Spec / guide:** `contract/openapi.yaml` (v1.2.0) and `docs/INTEGRATION.md` (endpoints, auth, error codes, rowVersion rules). Mock: `npx @stoplight/prism-cli mock contract/openapi.yaml -p 4010`.
+- **Demo accounts** (password shared privately by the owner, not in git): `super@`, `cafeteria@`, `library@`, `labit@`, `academic@`, `student@`, `student2@` + `campusconnect.edu`. ~40 demo complaints are seeded.
+- **Images:** there is NO upload endpoint. Keep photos on the device; do not send `imageUrls` (ignored, always `[]`).
+- **Rules to remember:** send `rowVersion` on `PATCH /complaints/{id}/status` (409 = stale, reload); only DEPT_ADMIN changes status/remarks, SUPER_ADMIN is read-only; wrong-department/direct-URL access returns 403 → show a 403 screen; login/register are rate limited (429).
+- **Not yet pushed:** frontend code is not in the repo. Please push it to a branch `fe/app` so the owner can run it.
+
+### YYYY-MM-DD HH:MM · From → To · BLOCKING|FYI`
 
 ### 2026-11-19 · Codex → Owner / Integrator · FYI
 PR #3 review fixes validated: 63 tests passed, Release publish passed, no EF model/migration drift. Required rowVersion now protects status PATCH; only matching DEPT_ADMIN may change status/post remarks, SUPER_ADMIN is read-only and terminal complaints cannot reopen. Client updates and owner contract reconciliation are required before release; /api/v1 paths are unchanged. Exact deltas: backend/contracts/PR3_REVIEW.md.
