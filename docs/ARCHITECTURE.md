@@ -1,76 +1,54 @@
 # Architecture & Decisions
 
-Baseline from issue #1 (owner decision): **.NET 10 · EF Core 10 · SQL Server · AWS · mobile app via APK**. Judges grade working features, server-side RBAC, DB integration, analytics, deployment and your ability to explain architecture, APIs and DB design.
+Baseline (owner decision, issue #1): **ASP.NET Core 10 · EF Core · SQL Server on AWS · mobile app delivered as an APK.** The backend is implemented (PR #3); this doc describes the real system.
 
 ## System
 
 ```
- Flutter Android app (APK)           AWS
- ┌────────────────────┐   HTTPS   ┌───────────────────────────────┐
- │ Riverpod, dio      │──────────►│ Nginx :443 → Kestrel :5080    │
- │ access JWT (memory)│           │ ASP.NET Core 10 API (EC2)     │──► RDS SQL Server
- │ refresh (Keystore) │           │   Identity + JWT + EF Core    │
- └─────────┬──────────┘           └──────────────┬────────────────┘
-           │  PUT image via pre-signed URL        │ signs URLs
-           └──────────────────────────────────────▼
-                                              S3 bucket (attachments)
- APK shared via Firebase App Distribution or Google Drive
+ Mobile app (APK)                 AWS eu-north-1
+ ┌──────────────┐  HTTP(S)   ┌──────────────────────────────┐
+ │ Bearer token │───────────►│ Nginx :80/:443               │
+ └──────┬───────┘            │   └► Kestrel 127.0.0.1:5000  │──► RDS SQL Server
+        │                    │      ASP.NET Core 10 API     │    (private, 1433 from EC2 SG only)
+        │ signed upload      └──────────────────────────────┘
+        └──────────────────────────► Cloudinary (images)  ◄── API signs uploads, validates URLs
 ```
 
-## ADRs
+## Decisions
 
 | # | Decision | Why |
 |---|---|---|
-| 1 | Monorepo: `backend/`, `mobile/`, `contract/`, `docs/` | Single history; contract shared by both agents |
-| 2 | **Contract-first OpenAPI 3.1** | Codex builds the app on a Prism mock while Claude builds the API; generated Dart client; contract test catches drift |
-| 3 | **ASP.NET Core 10 + EF Core 10 + SQL Server** | Owner/Talal baseline; strong typing, Identity, rowversion concurrency built in |
-| 4 | **AWS**: EC2 + Nginx (API), RDS SQL Server (DB), S3 (images) | Required hosting; Nginx terminates TLS; RDS keeps DB separate from the app host |
-| 5 | **Flutter Android APK** | Apps ship as an installable file for Firebase App Distribution/Drive; one codebase, good charts (`fl_chart`) |
-| 6 | **Access JWT 900 s in memory + rotating hashed refresh token** | Short-lived credentials; replay of a rotated token revokes the family. Mobile sends it in body (no cookies/CSRF on native) |
-| 7 | **Server-side scope helper** | One choke point = provable RBAC; out-of-scope → 403 |
-| 8 | Department **derived from category** server-side | PDF §4.2 automatic routing; no client spoofing |
-| 9 | **`rowVersion` optimistic concurrency** on status updates | Two admins can't silently overwrite each other |
-| 10 | **SuperAdmin read-only by default** | PDF: super admin views/monitors; only dept admins resolve. Least privilege |
-| 11 | **Admins provisioned**, passwords never committed | PDF: no admin registration needed; secrets come from env/user-secrets/CLI |
-| 12 | **Pre-signed S3 uploads** | API never handles file bytes; EC2 disk not used for storage |
-| 13 | **Polling (30 s)** for notifications; SignalR deferred | Zero extra infra; REST state is persisted so SignalR can be added later without a contract break |
-| 14 | RFC 7807 errors, validation 400 | Standard, easy for the Dart client to parse via `code` |
+| 1 | Monorepo: `backend/`, `frontend/`, `contract/`, `docs/` | One history; shared contract |
+| 2 | Contract-first (`contract/openapi.yaml` v1.1.0) | Frontend builds against a mock while the backend finishes; contract tests catch drift |
+| 3 | ASP.NET Core minimal APIs + EF Core + SQL Server | Owner baseline; maps to RDS; typed, fast to ship |
+| 4 | EC2 + Nginx + RDS | Required AWS hosting; Nginx terminates TLS; DB private |
+| 5 | JWT bearer (7 days) | Simple for a native app; refresh-token flow is a later, all-or-nothing increment |
+| 6 | One scope function for all complaint queries | Provable RBAC; out-of-scope → 403 |
+| 7 | Department derived from category on the server | PDF §4.2 automatic routing; no client spoofing |
+| 8 | `rowVersion` optimistic concurrency on status change | Two admins can't silently overwrite each other |
+| 9 | SUPER_ADMIN read-only | Least privilege: only the owning department resolves complaints |
+| 10 | Admins seeded; password from `SEED_PASSWORD` env | PDF needs no admin signup; repo is public, no committed secrets |
+| 11 | Cloudinary signed uploads, URL allow-list per submitting user | No file bytes through the API; no arbitrary image URLs |
+| 12 | Notifications via REST polling (30 s); SignalR optional | REST is authoritative; real-time is a bonus |
+| 13 | Forwarded headers trusted only from `TRUSTED_PROXIES` | Correct per-client rate limiting behind Nginx without allowing spoofing |
 
-## Delivery gates
-
-| Gate | Scope | Tables |
-|---|---|---|
-| **P0** | Register/login, categories, submit, auto-route, own-complaint views, dept inbox/detail/status/remarks, super admin all+filters+search, dashboards, bar chart, `/health`, deployed | core tables |
-| **Session** | refresh/logout, rotation, replay revocation, single-flight client | `RefreshTokens` |
-| **G1** | Timeline/audit (`/history`) | `ComplaintHistory` |
-| **G2** | Notifications (polling) | `Notifications` |
-| **G3** | 1–5 resolution rating | `Feedback` |
-| **G4** | CSV export, recurring-issues extras, attachments | — / S3 |
-
-Optional tables arrive in **later migrations**; P0 never depends on them. When a gate is enabled, its writes join the status-change transaction. `GET /api/features` tells the app what's on.
-
-## Workflow (state machine)
+## Workflow
 
 ```
-Pending ──► InProgress ──► Resolved (terminal)
-   │            └────────► Rejected (terminal, remark required)
-   ├───────────────────► Resolved
-   └───────────────────► Rejected
+PENDING ──► IN_PROGRESS ──► RESOLVED   (terminal)
+   │             └────────► REJECTED   (terminal, remark required)
+   └─────────────────────► REJECTED
 ```
-Only the owning department's admin transitions. SuperAdmin reads everything, changes nothing.
+Only the owning department's `DEPT_ADMIN` transitions; `SUPER_ADMIN` and students never write.
 
-## Database (ER summary)
+## Data model
 
-```
-Department 1─* Category 1─* Complaint *─1 Student(User)
-Department 1─* DepartmentAdmin(User)
-Complaint 1─* Remark · 1─* Attachment · 1─* (History|Notification|Feedback gates)
-User 1─* RefreshToken (family)
-```
-Types: user GUID · lookups int · transactional bigint · `Complaints.RowVersion` = SQL `rowversion`. Ticket `CC-<year>-<6-digit>`.
+`Department(id, name, slug)` · `User(id, name, email, passwordHash, role, studentId?, departmentId?)` · `Complaint(id, ticket, authorId, departmentId, category, subIssue?, title, description, status, priority, location?, imageUrls[], anonymousToStaff, dueAt, resolvedAt?, version)` · `TimelineEntry` · `Support` (deferred) · `Feedback` · `Notification` · `TicketCounter(year)`. Indexes on `(DepartmentId, Status)`, `AuthorId`, `Category`, `CreatedAt`.
 
 ## Features beyond the PDF
-Ticket numbers, audit timeline (G1), in-app notifications (G2), resolution rating (G3), CSV export and recurring-issues report (G4), optimistic concurrency, rotating refresh tokens, image attachments. **Not doing:** email/SMS, AI classification, SignalR, iOS build.
 
-## 60-second pitch for judges
-"Contract-first: one OpenAPI spec drives both the ASP.NET API and the generated Flutter client. A complaint's department comes from its category on the server; every query passes one scope function, so a Library admin hitting a Lab complaint gets 403 — and tests prove it. Status changes follow a state machine with optimistic concurrency. Sessions use 15-minute JWTs with rotating refresh tokens. It runs on EC2/RDS/S3 and installs from an APK."
+Ticket numbers (`CC-2026-0042`), audit timeline, priority + SLA overdue flag, anonymous-to-staff option, resolution rating, notifications (polling/SignalR), CSV export (formula-safe), recurring-issues analytics, trend chart, concurrency control. **Deferred:** "me too" support (#4), refresh tokens, email/SMS.
+
+## Judge pitch (60 s)
+
+"Contract-first: one OpenAPI spec between the app and an ASP.NET Core API on EC2/RDS. A complaint's department is derived from its category on the server, and every query passes one scope function, so a Library admin opening a Lab complaint gets a 403 — covered by integration tests. Status changes follow a state machine with optimistic concurrency and write a timeline entry and notification atomically. Dashboards are SQL aggregates scoped by role."

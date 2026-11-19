@@ -1,14 +1,11 @@
-# Competition Roadmap (10:00 AM → 3:00 PM)
+# Roadmap (to the 3:00 PM deadline)
 
-| Time | Claude (backend core) | Codex (tests + mobile) | Owner |
+| Stage | Backend (Codex) | Frontend (Claude) | Owner |
 |---|---|---|---|
-| 10:00–10:45 | Solution, DbContext, first migration, lookup seed, Identity, register/login/me, `/health` | Flutter scaffold, generate Dart client, Prism mock, login/register screens; test project + Testcontainers harness | Provision RDS + EC2 |
-| 10:45–11:45 | Categories, complaints create/list/detail with scope | Student screens; scope/forbidden tests for student | |
-| 11:45–12:30 | Department endpoints, status machine, rowVersion, remarks | Dept admin screens; state-machine + concurrency tests | **P0 checkpoint 12:30** |
-| 12:30–1:15 | Admin endpoints, dashboards, reports | Dashboards + charts; analytics scope tests | **First deploy to AWS (1:15)** |
-| 1:15–2:00 | Session (refresh/logout) → G1 → G2 | Single-flight refresh + session tests → G1/G2 UI | |
-| **2:00** | **FEATURE FREEZE** | | |
-| 2:00–2:45 | Bug fixes from failing tests; prod admin seed | APK release build, Firebase/Drive upload, demo script | Smoke test 6 logins |
-| 2:45–3:00 | | | Submit API URL + APK link |
+| Now | Merge PR #3 once CI is green; close open review items | Integrate per `docs/INTEGRATION.md`; build against Prism/real API | Deploy build to EC2 (`docs/DEPLOYMENT.md` §C); Elastic IP; Cloudinary keys |
+| Next | Support decision (#4); spec/code sync | MVP screens: auth, submit, lists, detail, dept actions, dashboards | Merge contract PR #2 (v1.1.0) |
+| Then | Refresh-token increment only if time (all-or-nothing) | Charts, notifications, rating, CSV | Domain + HTTPS (certbot), APK build |
+| **2:00 PM** | **Feature freeze** — bug fixes only | same | Smoke test every role from the installed APK |
+| 2:45–3:00 | — | — | Submit API URL + APK link |
 
-Cut order if behind: G4 → G3 → G2 → G1 → attachments. Never cut: auth, submit, auto-routing, 403 isolation, status updates, bar chart, deployment. Session is a single bundle: ship it complete or not at all.
+Cut order if behind: CSV → trend → recurring → rating → notifications. Never cut: auth, submit, auto-routing, 403 isolation, status updates, bar chart, deployment.

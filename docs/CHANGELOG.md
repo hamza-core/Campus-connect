@@ -1,16 +1,19 @@
 # Contract Changelog
 
-## 2.0.0 — BREAKING (issue #1, owner decision)
-Baseline moved from Node/Express/Prisma/Postgres + web SPA to **.NET 10 / EF Core 10 / SQL Server on AWS + Flutter APK**.
-- Base path `/api/v1` → `/api`; role-specific resources `/api/department/*` and `/api/admin/*`
-- Roles `STUDENT|DEPT_ADMIN|SUPER_ADMIN` → `Student|DepartmentAdmin|SuperAdmin`; statuses → `Pending|InProgress|Resolved|Rejected`
-- IDs: GUID users, int lookups, int64 transactional (were cuid strings)
-- Envelope removed; errors now RFC 7807 with `code`; validation 422 → 400; paging `items/pageNumber/pageSize/totalCount`
-- Session: 7d JWT → 900 s access token + rotating hashed refresh token (`/auth/refresh`, `/auth/logout`)
-- Workflow: Pending may go directly to Resolved; **SuperAdmin is read-only**; no reopen; `rowVersion` concurrency (409)
-- Removed from baseline: priority, SLA/overdue, "me too", anonymous-to-staff, `/analytics/*` (replaced by `/api/*/dashboard` and `/api/admin/reports/*`)
-- Optional gates G1–G4 added behind `/api/features`
-- Uploads: Cloudinary → S3 pre-signed URLs; no committed admin passwords
+## 1.1.0 — aligns the spec with the implemented backend (PR #3, `backend/contracts/PR3_REVIEW.md`)
+**Breaking vs 1.0.0**
+- `PATCH /complaints/{id}/status` requires `rowVersion` (UUID); missing → 422, stale → 409
+- Status changes and `POST /complaints/{id}/comments` are **DEPT_ADMIN only**; SUPER_ADMIN is read-only (no reopen); students cannot post remarks
+- `Complaint.rowVersion` added (required in responses)
+
+**Additive**
+- Error code `RATE_LIMITED` and 429 on login/register
+- `GET /health` may return 503 `{ status: "unavailable" }`
+- `/uploads/sign`: optional `fileSize`, response `maxFileSize`; `imageUrls` must come from the submitting user's Cloudinary upload
+- Support endpoints marked `deprecated` (deferred, always 403 — issue #4)
+- Production server entry (`http://13.53.165.254/api/v1`)
+
+Stack and hosting are documented in `docs/ARCHITECTURE.md` (.NET 10 / SQL Server / AWS).
 
 ## 1.0.0
-Initial Node-based contract (superseded).
+Initial contract.

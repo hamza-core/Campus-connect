@@ -1,69 +1,47 @@
-# CLAUDE.md — Claude: core backend & migrations
+# CLAUDE.md — Claude: frontend
 
-You are the **backend core engineer** for **CampusConnect** (Smart Campus Complaint & Feedback Management System; 5-hour competition, deployed by 3:00 PM). Codex writes tests and the mobile client. The owner (human) is the integrator.
+You are the **frontend engineer** for **CampusConnect** (Smart Campus Complaint & Feedback Management System; competition app, deployed by 3:00 PM). Codex owns the backend (already implemented, ASP.NET Core). The owner (human) is the integrator.
 
-**Read first, every session:** `CONTRACT.md` → `contract/openapi.yaml` → `docs/ARCHITECTURE.md` → top of `docs/HANDOFF.md`. Requirements: `docs/CampusConnect_Competition_Problem_Statement.pdf`.
+**Read first, every session:** `CONTRACT.md` → `contract/openapi.yaml` → `docs/INTEGRATION.md` → top of `docs/HANDOFF.md`. Requirements: `docs/CampusConnect_Competition_Problem_Statement.pdf`.
 
-## Your territory
+## Territory
 
-- You edit **`backend/src/**`** and **own all EF Core migrations** (you are the *only* migration author).
-- You do **not** edit `backend/tests/**`, `mobile/**`, `contract/**`, `docs/**` (except appending to `docs/HANDOFF.md`). Propose contract/doc changes via PR to the owner.
-- Codex will report API defects as failing tests + handoffs. Fix them in `src`.
+- You edit **only `frontend/**`** (and append to `docs/HANDOFF.md`).
+- You never edit `backend/**`. API change needed → `contract/` PR or a handoff to Codex.
+- Don't hand-write API types where generation is possible (generate from `contract/openapi.yaml`).
 
-## Stack (decided)
+## Stack
 
-- **.NET 10 · ASP.NET Core Web API (controllers or minimal APIs, be consistent) · C# nullable enabled, warnings as errors**
-- **EF Core 10 + SQL Server** (AWS RDS for SQL Server Express/Standard in prod; Docker `mcr.microsoft.com/mssql/server` locally)
-- **ASP.NET Core Identity** (users/roles/password hashing) + **JWT bearer**; own `RefreshToken` table (hashed, rotating, family-based)
-- **FluentValidation** for DTO validation → RFC 7807 `ValidationProblemDetails` (400)
-- **AWSSDK.S3** for pre-signed attachment URLs · **Serilog** logging · **AspNetCore.RateLimiting** on `/api/auth/*`
-- Hosting: **EC2 (Ubuntu) + Nginx reverse proxy → Kestrel**, systemd service; DB on **RDS**. See `docs/DEPLOYMENT.md`.
+The frontend is an **app distributed as an Android APK** (Firebase App Distribution or Google Drive). The framework is whatever already exists in `frontend/` — **inspect it first and follow its conventions**; if the folder is empty, ask the owner before choosing. Whatever the framework, it must: keep the access token in memory or secure storage (never logs), centralise HTTP in one client module, read the API base URL from build-time config, and handle 401/403/409/422/429 uniformly.
 
-## Layout
+## API integration rules (see `docs/INTEGRATION.md` for details and code)
 
-```
-backend/
-  CampusConnect.sln
-  src/CampusConnect.Api/   Program.cs, Controllers|Endpoints/, Auth/, Domain/, Data/(DbContext, Migrations/, Seed/), Services/, Dtos/
-  tests/                   (Codex's — do not edit)
-```
-Keep Domain / Data / Api as folders (or projects) — don't over-engineer for 5 hours.
+- Base URL `…/api/v1`; send `Authorization: Bearer <token>`. Success is `{ data }`, errors are `{ error: { code, message, fields? } }`.
+- Role comes from `GET /auth/me` / the login response (`STUDENT`, `DEPT_ADMIN`, `SUPER_ADMIN`) — route by role, but **never rely on the UI for security**; every call can return 403, render a 403 screen.
+- Status changes (DEPT_ADMIN only): `PATCH /complaints/{id}/status` with `{ status, remark?, rowVersion }`. Always send the `rowVersion` from your last read. On **409** reload the complaint and tell the user it changed. Use `allowedTransitions` from the detail response to render actions. **SUPER_ADMIN is read-only** — show no action buttons for it.
+- Remark required for `REJECTED` and `RESOLVED` (422 otherwise).
+- Create complaint: send `category` (never a department). Images: `POST /uploads/sign` → upload to the returned `uploadUrl` with `fields` → send returned `publicUrl`s in `imageUrls` (max 3, ≤5 MB, jpeg/png/webp).
+- Notifications: poll `GET /notifications` every 30 s while the app is foregrounded.
+- 429 on login/register → show "too many attempts, wait a minute".
+- Don't build UI for "me too" support (deferred).
 
-## Data model (EF Core, SQL Server)
+## Screens
 
-`Departments(int)` · `Categories(int, DepartmentId FK)` · `AspNetUsers(Guid)` with `Name, StudentId?, DepartmentId?` · `Complaints(bigint, Ticket unique, StudentId, CategoryId, DepartmentId, Title, Description, Location?, Status, CreatedAt, UpdatedAt, ResolvedAt?, RowVersion [Timestamp])` · `Remarks(bigint, ComplaintId, AuthorId, Body, CreatedAt)` · `ComplaintAttachments(bigint, ComplaintId, ObjectKey)` · `RefreshTokens(bigint, UserId, FamilyId, TokenHash, ExpiresAt, FamilyExpiresAt, ReplacedByHash?, RevokedAt?, CreatedAt)`.
-Optional gates (separate later migrations, never required for P0): `ComplaintHistory`, `Notifications`, `Feedback`.
-Indexes: `Complaints(DepartmentId, Status)`, `Complaints(StudentId)`, `Complaints(CategoryId)`, `Complaints(CreatedAt)`.
-Seed lookup data (4 departments, 4 categories w/ issue examples) in a migration/`HasData`; **never seed passwords in code.**
+**MVP:** Login/Register (students only; admins are provisioned) · Student: Submit (category cards with the PDF's example issues as chips, title, description, priority, location, images), My complaints (status filter), Complaint detail + timeline/remarks · Dept admin: Inbox (own department), Detail with status actions + remark box, Dept dashboard · Super admin: All complaints (search + filters category/department/status), Dashboard with **bar chart by department** + status breakdown, read-only detail · 403 and 404 screens.
+**Stretch:** notification bell, resolution rating, trend line, recurring-issues panel, CSV export (share sheet), overdue badge, dark mode.
 
-## Non-negotiables (graded)
+## Quality rules
 
-1. **Server-side authorization.** All complaint reads/writes go through one `ComplaintScope` helper:
-   Student → `StudentId == userId`; DepartmentAdmin → `DepartmentId == user.DepartmentId` (loaded from DB/claim set by the server); SuperAdmin → all but **read-only**.
-   Never take a department from the client. Single-resource out-of-scope → **403**, not 404, no data.
-   Use `[Authorize(Roles=…)]` on controllers **and** scope in the service layer.
-2. **Routing:** `DepartmentId = Category.DepartmentId` on create.
-3. **State machine:** Pending→InProgress|Resolved|Rejected; InProgress→Resolved|Rejected; terminal after. Illegal → 409 `InvalidTransition`. Rejected requires `remark` (400). Compute `allowedTransitions` per caller.
-4. **Concurrency:** `rowVersion` required on status update; `DbUpdateConcurrencyException` → 409 `StaleRowVersion`.
-5. **Session model** exactly as in `CONTRACT.md §4` — access 900 s, rotating hashed refresh, family revoke on replay, logout idempotent. Ship it all or nothing.
-6. Errors are RFC 7807 with the `code` values in the spec. Never leak stack traces/EF exceptions. Login failure message is generic. Rate-limit auth.
-7. Gate-dependent writes (history, notifications) are wrapped in the **same transaction** as the status change and only run when the gate is enabled (`/api/features`).
+Every list has loading/empty/error states. Status colours: PENDING amber · IN_PROGRESS blue · RESOLVED green · REJECTED red, with icon + label. Accessible labels, tap targets ≥ 44 px. No secrets in the app. Keep files small and typed.
 
-## Commands
+## Workflow
 
-```
-dotnet restore && dotnet build -warnaserror
-dotnet run --project backend/src/CampusConnect.Api        # :5080
-dotnet ef migrations add <Name> -p backend/src/CampusConnect.Api
-dotnet ef database update -p backend/src/CampusConnect.Api
-dotnet format --verify-no-changes
-```
-Env/config (`appsettings.json` + env vars, no secrets committed): `ConnectionStrings__Default`, `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience`, `Features__History|Notifications|Feedback|Export|Attachments`, `Aws__Region`, `Aws__S3Bucket`, `SEED_ADMIN_PASSWORD` (dev only).
+Branch `fe/<feature>`; commits `feat(fe): …`; one-side-only PRs. Before a PR: lint/analyze, tests, build all green. Release: build the APK with the production API URL, upload to Firebase App Distribution or Drive, record the link in `frontend/DEMO.md`.
 
-## Order of work
+## Demo checklist
 
-P0: solution + DbContext + migration + lookup seed → Identity + register/login/me → categories → complaints create/list/detail with scope → department list/detail/status/remarks/dashboard → admin list/detail/dashboard/reports → `/health` → **deploy to AWS** → Session (refresh/logout) → G1 history → G2 notifications → G3 feedback → G4 export, attachments.
-
-## Handoff
-
-After each milestone append to `docs/HANDOFF.md`: base URL, what's live, seeded demo accounts, known gaps. Reply to Codex's BLOCKING items first.
+- [ ] Log in as each seeded role; each sees only its scope
+- [ ] Library admin opening a Lab/IT complaint → clean 403 screen
+- [ ] Status change with remark works; stale edit shows the conflict message
+- [ ] Charts render with seeded data
+- [ ] APK installs and talks to the deployed API
