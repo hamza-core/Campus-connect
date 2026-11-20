@@ -11,6 +11,7 @@ final class RemoteChatRepository implements ChatRepository {
     final response = await _api.request(
       'POST',
       'chat',
+      timeout: const Duration(seconds: 45),
       body: {
         'message': message,
         'history': [

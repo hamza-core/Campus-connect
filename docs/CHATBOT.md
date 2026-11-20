@@ -8,6 +8,7 @@ Backend-only; no app screen. Answers come from retrieval over `backend/src/Campu
 | `LLM_API_KEY` | Any OpenAI-compatible provider (free tiers: Groq, Google Gemini, OpenRouter). Enables `mode: "ai"`. Wins over `ANTHROPIC_API_KEY`. |
 | `LLM_BASE_URL` | Default `https://api.groq.com/openai/v1`. Gemini: `https://generativelanguage.googleapis.com/v1beta/openai`. OpenRouter: `https://openrouter.ai/api/v1`. |
 | `LLM_REASONING_EFFORT` | Optional (`low`/`none`) for thinking models such as Gemini 3.x, so thinking does not eat `CHAT_MAX_TOKENS` or time out. Same for `VISION_REASONING_EFFORT`. |
+| `LLM_TIMEOUT_SECONDS` | Model call timeout, default 20; on timeout the endpoint answers from the notes (`mode: retrieval`). The app waits up to 45 s for `/chat`. |
 | `LLM_MODEL` | Default `llama-3.1-8b-instant` (Groq). |
 | `ANTHROPIC_API_KEY` | Optional alternative (Claude). Used only when `LLM_API_KEY` is empty. Without it the endpoint still works and returns the best matching note (`mode: "retrieval"`). |
 | `ANTHROPIC_MODEL` | Default `claude-haiku-5-5`. |

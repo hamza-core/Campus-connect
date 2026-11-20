@@ -41,6 +41,7 @@ final class ApiClient {
     Map<String, String>? query,
     Map<String, Object?>? body,
     bool authenticated = true,
+    Duration? timeout,
   }) async {
     final response = await _send(
       method,
@@ -48,6 +49,7 @@ final class ApiClient {
       query: query,
       body: body,
       authenticated: authenticated,
+      timeout: timeout,
     );
     final status = response.statusCode;
     if (status == 204) return const {};
@@ -149,6 +151,7 @@ final class ApiClient {
     Map<String, String>? query,
     Map<String, Object?>? body,
     bool authenticated = true,
+    Duration? timeout,
   }) async {
     final relative = Uri.parse(endpoint);
     if (relative.hasScheme ||
@@ -183,7 +186,7 @@ final class ApiClient {
       response = await _client
           .send(request)
           .then(http.Response.fromStream)
-          .timeout(timeout);
+          .timeout(timeout ?? this.timeout);
     } on http.ClientException {
       throw const NetworkException();
     } on TimeoutException {
