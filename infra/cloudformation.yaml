@@ -1,0 +1,189 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CampusConnect - the application server (Ubuntu + Nginx + .NET), the private SQL Server
+  Express database, and the two security groups. Created and deleted as one stack by
+  infra/rebuild.sh. Secrets (JWT key, AI keys) are NOT in this template: the script puts
+  them on the server over SSH.
+
+Parameters:
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair used to SSH into the server.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC to build in (the default VPC is fine).
+  ServerSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: A public subnet for the server.
+  DbSubnetIds:
+    Type: String
+    Description: Comma-separated subnet IDs for the database (at least two, in different Availability Zones).
+  SshCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: '^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$'
+    Description: Address range allowed to SSH in. rebuild.sh sets this to your current IP only.
+  InstanceType:
+    Type: String
+    Default: t3.micro
+  AmiSsmPath:
+    Type: String
+    Default: /aws/service/canonical/ubuntu/server/26.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Description: Public SSM parameter that always points at the newest Ubuntu 26.04 LTS image.
+  AmiIdOverride:
+    Type: String
+    Default: ''
+    Description: Optional. Use this exact AMI ID instead of looking one up.
+  BootstrapUrl:
+    Type: String
+    Default: https://raw.githubusercontent.com/hamza-core/Campus-connect/main/backend/deploy/bootstrap-ec2.sh
+    Description: The script the server runs on first boot.
+  UseElasticIp:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: A fixed address that survives restarts (small ongoing charge). Not needed for short demos.
+  DbInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  DbStorageGb:
+    Type: Number
+    Default: 20
+    MinValue: 20
+  DbEngineVersion:
+    Type: String
+    Default: ''
+    Description: Optional SQL Server Express version. Empty means the current default.
+  DbPassword:
+    Type: String
+    NoEcho: true
+    Default: ''
+    AllowedPattern: '^([A-Za-z0-9]{8,64})?$'
+    Description: Database admin password (letters and digits only). Ignored when restoring a snapshot.
+  DbSnapshotId:
+    Type: String
+    Default: ''
+    Description: Optional. Restore the database from this snapshot instead of creating an empty one.
+
+Conditions:
+  UseEip: !Equals [!Ref UseElasticIp, 'true']
+  RestoreFromSnapshot: !Not [!Equals [!Ref DbSnapshotId, '']]
+  HasAmiOverride: !Not [!Equals [!Ref AmiIdOverride, '']]
+  HasEngineVersion: !Not [!Equals [!Ref DbEngineVersion, '']]
+
+Resources:
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CampusConnect server - SSH from one address, HTTP and HTTPS from anywhere
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SshCidr
+          Description: SSH
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS (not used until a domain and certificate are set up)
+      Tags:
+        - {Key: Name, Value: campusconnect-server-sg}
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CampusConnect database - SQL Server port, only from the server
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          SourceSecurityGroupId: !Ref ServerSecurityGroup
+          Description: SQL Server from the application server only
+      Tags:
+        - {Key: Name, Value: campusconnect-db-sg}
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CampusConnect database subnets
+      SubnetIds: !Split [',', !Ref DbSubnetIds]
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    # Deleting the stack keeps a final snapshot, so the data can be restored later.
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: sqlserver-ex
+      EngineVersion: !If [HasEngineVersion, !Ref DbEngineVersion, !Ref 'AWS::NoValue']
+      LicenseModel: license-included
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: !Ref DbStorageGb
+      StorageType: gp2
+      MasterUsername: !If [RestoreFromSnapshot, !Ref 'AWS::NoValue', admin]
+      MasterUserPassword: !If [RestoreFromSnapshot, !Ref 'AWS::NoValue', !Ref DbPassword]
+      DBSnapshotIdentifier: !If [RestoreFromSnapshot, !Ref DbSnapshotId, !Ref 'AWS::NoValue']
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DbSecurityGroup
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      CopyTagsToSnapshot: true
+      Tags:
+        - {Key: Name, Value: campusconnect-db}
+
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !If
+        - HasAmiOverride
+        - !Ref AmiIdOverride
+        - !Sub '{{resolve:ssm:${AmiSsmPath}}}'
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref ServerSubnetId
+      SecurityGroupIds:
+        - !Ref ServerSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            DeleteOnTermination: true
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - {Key: Name, Value: api-server}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          curl -fsSL '${BootstrapUrl}' -o /tmp/bootstrap-ec2.sh
+          runuser -l ubuntu -c 'bash /tmp/bootstrap-ec2.sh'
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Condition: UseEip
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Server
+
+Outputs:
+  ServerPublicIp:
+    Description: Address of the server (the app talks to http://THIS/api/v1)
+    Value: !If [UseEip, !Ref ElasticIp, !GetAtt Server.PublicIp]
+  DbEndpoint:
+    Description: Database host name
+    Value: !GetAtt Database.Endpoint.Address
+  ServerSecurityGroupId:
+    Value: !Ref ServerSecurityGroup
