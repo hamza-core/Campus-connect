@@ -125,6 +125,7 @@ public static class ComplaintQuery
         if (!r.Query.ContainsKey(key)) return null;
         return bool.TryParse(r.Query[key], out var value) ? value : throw ApiError.Invalid($"{key} must be a boolean.");
     }
+    public static IQueryable<Complaint> Scoped(IQueryable<Complaint> q, User u) => Scope.Apply(q, u);
     public static IQueryable<Complaint> Filter(IQueryable<Complaint> q, User u, HttpRequest r)
     {
         q = Scope.Apply(q, u);
@@ -136,6 +137,15 @@ public static class ComplaintQuery
         if (u.Role == Roles.Super && r.Query.TryGetValue("departmentId", out var department)) q = q.Where(x => x.DepartmentId == department.ToString());
         var overdue = Boolean(r, "overdue"); var now = DateTime.UtcNow;
         if (overdue is not null) q = q.Where(x => ((x.Status == "PENDING" || x.Status == "IN_PROGRESS") && x.DueAt < now) == overdue);
+        if (r.Query.ContainsKey("year"))
+        {
+            var year = Number(r, "year", 0, 2100);
+            if (year < 2000) throw ApiError.Invalid("year must be between 2000 and 2100.");
+            var month = r.Query.ContainsKey("month") ? Number(r, "month", 1, 12) : 0;
+            var start = new DateTime(year, month == 0 ? 1 : month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var end = month == 0 ? start.AddYears(1) : start.AddMonths(1);
+            q = q.Where(x => x.CreatedAt >= start && x.CreatedAt < end);
+        }
         if (r.Query.TryGetValue("q", out var search))
         {
             var term = search.ToString(); q = q.Where(x => x.Title.Contains(term) || x.Description.Contains(term) || x.Ticket.Contains(term));

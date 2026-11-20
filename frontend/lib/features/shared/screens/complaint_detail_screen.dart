@@ -14,7 +14,9 @@ import '../controllers/complaint_detail_controller.dart';
 import '../../../domain/enums/complaint_status.dart';
 import '../widgets/complaint_details_card.dart';
 import '../widgets/complaint_photo_gallery.dart';
+import '../../../domain/models/complaint_summary.dart';
 import '../widgets/rating_card.dart';
+import '../widgets/related_complaints.dart';
 import '../widgets/complaint_section.dart';
 import '../widgets/complaint_timeline.dart';
 import '../widgets/department_complaint_actions.dart';
@@ -40,6 +42,7 @@ final class ComplaintDetailScreen extends StatefulWidget {
 final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
   ComplaintDetailController? _controller;
   Future<List<Uint8List>>? _photos;
+  Future<List<ComplaintSummary>>? _related;
   final _remark = TextEditingController();
 
   @override
@@ -214,6 +217,15 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                             controller: controller,
                             feedback: complaint.feedback,
                             canRate: isStudent,
+                          ),
+                        ),
+                      if (!isStudent)
+                        RelatedComplaints(
+                          related: _related ??= AppScope.of(context).complaints
+                              .related(widget.id)
+                              .catchError((_) => const <ComplaintSummary>[]),
+                          onOpen: (item) => context.push(
+                            '${widget.backPath}/${Uri.encodeComponent(item.id)}',
                           ),
                         ),
                       ComplaintSection(

@@ -66,6 +66,8 @@ final class MockComplaintRepository implements ComplaintRepository {
                   (filter.priority == null ||
                       summary.priority == filter.priority) &&
                   (!filter.overdueOnly || summary.isOverdue) &&
+                  (filter.year == null ||
+                      summary.createdAt.toLocal().year == filter.year) &&
                   [
                     summary.title,
                     summary.ticket,
@@ -106,6 +108,21 @@ final class MockComplaintRepository implements ComplaintRepository {
       ],
       _ => const [],
     };
+  }
+
+  @override
+  Future<List<ComplaintSummary>> related(String id) async {
+    final user = _auth.requiredUser;
+    final current = _load(id, user).complaint;
+    final label = current.subIssue;
+    if (label == null || label.isEmpty) return const [];
+    return [
+      for (final item in visibleTo(user))
+        if (item.summary.id != id &&
+            item.summary.category == current.summary.category &&
+            item.subIssue == label)
+          item.summary,
+    ].take(10).toList();
   }
 
   @override

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.5.0
+  version: 1.6.0
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
     Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
@@ -276,6 +276,8 @@ paths:
         - { name: departmentId, in: query, description: "Ignored for DEPT_ADMIN / STUDENT", schema: { type: string } }
         - { name: priority, in: query, schema: { $ref: "#/components/schemas/Priority" } }
         - { name: overdue, in: query, schema: { type: boolean } }
+        - { name: year, in: query, description: "Created in this year (2000-2100, UTC)", schema: { type: integer, minimum: 2000, maximum: 2100 } }
+        - { name: month, in: query, description: "With year: created in this month (1-12)", schema: { type: integer, minimum: 1, maximum: 12 } }
         - { name: q, in: query, description: Text search over title/description/ticket, schema: { type: string } }
         - { name: sort, in: query, schema: { type: string, enum: [newest, oldest, mostSupported, priority], default: newest } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
@@ -303,6 +305,29 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/ComplaintDetail" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /complaints/{id}/related:
+    get:
+      tags: [Complaints]
+      summary: |
+        Up to 10 other complaints, within the caller's scope, with the same category and issue label
+        (newest first). Empty when the complaint has no issue label. `total` is the full count.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Related complaints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Complaint" } }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 

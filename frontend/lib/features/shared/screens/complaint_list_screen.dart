@@ -269,6 +269,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
                   controller: controller,
                   departments: _departments,
                   showDepartment: widget.superAdmin,
+                  showCategory: widget.superAdmin,
                 ),
               const SizedBox(height: 8),
               if (!keyboardOpen)

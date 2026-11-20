@@ -31,6 +31,7 @@ final class RemoteComplaintRepository implements ComplaintRepository {
         'departmentId': ?filter.departmentId,
         if (filter.priority case final priority?) 'priority': priority.apiValue,
         if (filter.overdueOnly) 'overdue': 'true',
+        if (filter.year case final year?) 'year': '$year',
       },
     );
     return PagedResult.fromJson(response, ComplaintSummary.fromJson);
@@ -130,6 +131,20 @@ final class RemoteComplaintRepository implements ComplaintRepository {
       'departmentId': ?filter.departmentId,
       if (filter.priority case final priority?) 'priority': priority.apiValue,
       if (filter.overdueOnly) 'overdue': 'true',
+      if (filter.year case final year?) 'year': '$year',
     },
   );
+
+  @override
+  Future<List<ComplaintSummary>> related(String id) async {
+    final response = await _api.request(
+      'GET',
+      '${ApiEndpoints.complaint(id)}/related',
+    );
+    return List.unmodifiable(
+      (response['data'] as List).cast<Map<String, Object?>>().map(
+        ComplaintSummary.fromJson,
+      ),
+    );
+  }
 }
