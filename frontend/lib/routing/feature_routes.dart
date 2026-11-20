@@ -23,7 +23,7 @@ List<RouteBase> featureRoutes(AuthController auth) => [
       _feature(
         '/student',
         (state) => StudentDashboardScreen(user: auth.user!),
-        student: true,
+        tab: true,
       ),
       _feature(
         '/student/complaints',
@@ -33,22 +33,20 @@ List<RouteBase> featureRoutes(AuthController auth) => [
           title: 'My complaints',
           student: true,
         ),
-        student: true,
+        tab: true,
       ),
       _feature(
         '/student/profile',
         (state) => StudentProfileScreen(auth: auth),
-        student: true,
+        tab: true,
       ),
       _feature(
         '/student/notifications',
         (state) => const NotificationsScreen(),
-        student: true,
       ),
       _feature(
         '/student/new',
         (state) => SubmitComplaintScreen(ownerId: auth.user!.id),
-        student: true,
       ),
     ],
   ),
@@ -60,20 +58,21 @@ List<RouteBase> featureRoutes(AuthController auth) => [
       backPath: '/student/complaints',
       photoOwnerId: auth.user!.id,
     ),
-    student: true,
   ),
   _adminRoutes(auth, '/department', superAdmin: false),
   _adminRoutes(auth, '/admin', superAdmin: true),
 ];
 
+/// [tab] routes are the bottom-navigation destinations and swap instantly;
+/// everything else is pushed on top with the platform transition.
 GoRoute _feature(
   String path,
   Widget Function(GoRouterState) build, {
-  bool student = false,
+  bool tab = false,
 }) => GoRoute(
   path: path,
   pageBuilder: (context, state) =>
-      featurePage(state, build(state), studentMotion: student),
+      tab ? tabPage(state, build(state)) : pushedPage(state, build(state)),
 );
 
 ShellRoute _adminRoutes(
@@ -99,6 +98,7 @@ ShellRoute _adminRoutes(
           complaintsPath: complaintsPath,
           showChart: superAdmin,
         ),
+        tab: true,
       ),
       _feature(
         complaintsPath,
@@ -116,6 +116,7 @@ ShellRoute _adminRoutes(
               .firstOrNull,
           initialOverdue: state.uri.queryParameters['overdue'] == 'true',
         ),
+        tab: true,
       ),
       _feature(
         '$complaintsPath/:id',
