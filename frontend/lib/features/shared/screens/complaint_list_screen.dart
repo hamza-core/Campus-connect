@@ -13,6 +13,7 @@ import '../../../di/app_scope.dart';
 import '../../../domain/enums/complaint_status.dart';
 import '../../../domain/models/complaint_summary.dart';
 import '../controllers/complaint_list_controller.dart';
+import '../../../domain/models/complaint_filter.dart';
 import '../widgets/complaint_filters.dart';
 import '../widgets/complaint_results.dart';
 
@@ -94,10 +95,10 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
     } else {
       _controller!.refresh();
     }
-    if (widget.student) {
-      // A live notification means one of my complaints just changed.
-      _live = dependencies.notifications..addListener(_checkForUpdates);
-    }
+    // A live notification means a complaint was added or just changed.
+    _live = dependencies.notifications..addListener(_checkForUpdates);
+    _countsKey = _controller!.filter;
+    _controller!.addListener(_onControllerChange);
     if (widget.superAdmin) {
       dependencies.dashboard
           .byDepartment()
@@ -112,6 +113,23 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
           .catchError((Object _) {});
     }
     if (widget.student) _loadCounts();
+  }
+
+  ComplaintFilter? _countsKey;
+
+  /// The status-chip counts follow the search/filter, so reload them when it changes.
+  void _onControllerChange() {
+    final filter = _controller!.filter;
+    final previous = _countsKey;
+    if (previous == null) return;
+    if (filter.search != previous.search ||
+        filter.category != previous.category ||
+        filter.departmentId != previous.departmentId ||
+        filter.overdueOnly != previous.overdueOnly ||
+        filter.year != previous.year) {
+      _countsKey = filter;
+      if (widget.student) _loadCounts();
+    }
   }
 
   Future<void> _loadCounts() async {
@@ -198,6 +216,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
     WidgetsBinding.instance.removeObserver(this);
     _autoRefresh?.cancel();
     _live?.removeListener(_checkForUpdates);
+    _controller?.removeListener(_onControllerChange);
     _scroll.dispose();
     _search.dispose();
     _controller?.dispose();
@@ -212,7 +231,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
 
   Future<void> _open(ComplaintSummary item) async {
     await context.push('${widget.basePath}/${Uri.encodeComponent(item.id)}');
-    if (mounted && !widget.student) await _refresh();
+    if (mounted) await _refresh();
   }
 
   @override

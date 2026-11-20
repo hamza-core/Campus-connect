@@ -28,6 +28,25 @@ final class ComplaintDetailController extends BaseController {
     },
   );
 
+  /// Quietly re-fetches without a loading state; only notifies on a change.
+  Future<void> refreshSilently() async {
+    if (saving || state == ViewState.loading || complaint == null) return;
+    try {
+      final next = await _repository.detail(id);
+      if (saving) return;
+      final current = complaint!;
+      if (next.rowVersion == current.rowVersion &&
+          next.summary.status == current.summary.status &&
+          next.timeline.length == current.timeline.length) {
+        return;
+      }
+      complaint = next;
+      safeNotify();
+    } on Object {
+      // Keep showing the last known data.
+    }
+  }
+
   Future<void> update(ComplaintStatus status, String remark) async {
     final current = complaint;
     if (current == null ||

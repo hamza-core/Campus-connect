@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/controllers/base_controller.dart';
+import '../../../core/utils/auto_refresh.dart';
 import '../../../core/storage/complaint_photo_store.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/responsive_center.dart';
@@ -39,11 +41,24 @@ final class ComplaintDetailScreen extends StatefulWidget {
   State<ComplaintDetailScreen> createState() => _ComplaintDetailScreenState();
 }
 
-final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
+final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen>
+    with WidgetsBindingObserver {
+  Timer? _autoRefresh;
+  Listenable? _live;
   ComplaintDetailController? _controller;
   Future<List<Uint8List>>? _photos;
   Future<List<ComplaintSummary>>? _related;
   final _remark = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _autoRefresh = Timer.periodic(
+      autoRefreshInterval,
+      (_) => _checkForUpdates(),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -52,10 +67,25 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
       AppScope.of(context).complaints,
       widget.id,
     )..load();
+    _live ??= AppScope.of(context).notifications..addListener(_checkForUpdates);
+  }
+
+  void _checkForUpdates() {
+    if (!mounted) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    _controller?.refreshSilently();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkForUpdates();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRefresh?.cancel();
+    _live?.removeListener(_checkForUpdates);
     _controller?.dispose();
     _remark.dispose();
     super.dispose();
