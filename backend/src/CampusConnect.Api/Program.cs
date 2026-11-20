@@ -142,13 +142,16 @@ app.MapAnalyticsEndpoints();
 app.MapChatEndpoints();
 app.MapVisionEndpoints();
 app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
-if (args.Contains("--migrate") || args.Contains("--seed"))
+if (args.Contains("--migrate") || args.Contains("--seed") || args.Contains("--reset-demo"))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-    var seedPassword = args.Contains("--seed") ? Seed.RequirePassword(app.Configuration) : null;
+    var reset = args.Contains("--reset-demo");
+    var seedPassword = args.Contains("--seed") || reset ? Seed.RequirePassword(app.Configuration) : null;
+    if (reset) DemoData.RequireConfirmation(app.Configuration);
     await db.Database.MigrateAsync();
-    if (seedPassword is not null) await Seed.Run(db, seedPassword);
+    if (reset) await DemoData.Reset(db, seedPassword!);
+    else if (seedPassword is not null) await Seed.Run(db, seedPassword);
     return;
 }
 await app.RunAsync();

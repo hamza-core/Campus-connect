@@ -54,6 +54,18 @@ JWT_SECRET=<48 random bytes, base64>
 7. **Verify:** `curl http://<ip>/api/v1/health` → `{"status":"ok"}`; `curl http://<ip>/api/v1/meta/categories`; SignalR: `curl -X POST "http://<ip>/hubs/notifications/negotiate?negotiateVersion=1" -H "Authorization: Bearer <token>"` → 200 with `WebSockets` available (no token → 401).
 8. **Update later:** repeat 1–2, then `sudo systemctl restart api` (run `--migrate` first if the PR has a new migration; keep migrations backward-compatible).
 
+## C1. Resetting the demo data (destructive)
+
+`--reset-demo` deletes **every complaint** (with its timeline, feedback, support and notifications) and re-creates ~44 realistic ones across the four departments. User accounts are kept; the demo logins get real display names and four extra student accounts are added (they use `SEED_PASSWORD`). It refuses to run without an explicit confirmation:
+
+```
+sudo systemd-run --wait --pipe -q -p EnvironmentFile=/etc/api.env -p WorkingDirectory=/home/ubuntu/api -p User=ubuntu \
+  --setenv=SEED_PASSWORD='<password>' --setenv=CONFIRM_RESET=delete-all-complaints \
+  /usr/bin/dotnet /home/ubuntu/api/CampusConnect.Api.dll --reset-demo
+```
+
+Take a backup first (CSV export from the super admin account, and `tar czf ~/backup-uploads.tgz ~/uploads`), then clear `~/uploads` by hand if you also want the old photos gone.
+
 ## C2. CI/CD pipelines (GitHub Actions)
 
 | Workflow | Runs on | What it does |
