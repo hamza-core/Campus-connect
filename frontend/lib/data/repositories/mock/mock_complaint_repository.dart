@@ -156,6 +156,7 @@ final class MockComplaintRepository implements ComplaintRepository {
     Priority priority = Priority.medium,
     String? location,
     bool anonymousToStaff = false,
+    List<String> imageUrls = const [],
   }) async {
     final user = _auth.requiredUser;
     if (user.role != UserRole.student) throw const ForbiddenException();

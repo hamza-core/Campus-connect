@@ -57,6 +57,7 @@ final class _FakeRepository implements ComplaintRepository {
     Priority priority = Priority.medium,
     String? location,
     bool anonymousToStaff = false,
+    List<String> imageUrls = const [],
   }) => throw UnimplementedError();
   @override
   Future<Complaint> submitFeedback({
