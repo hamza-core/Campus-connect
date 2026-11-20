@@ -27,3 +27,6 @@ Initial contract.
 
 ## 1.3.0 — AI assistant
 - Added `POST /chat` (retrieval-augmented assistant, additive). See `docs/CHATBOT.md`.
+
+## 1.4.0 — Photos and AI issue detection
+- Added `POST /uploads`, `GET /uploads/{id}`, `POST /complaints/analyze`, `GET /meta/frequent-issues`; `POST /complaints` now stores up to 3 validated `imageUrls` (previously ignored).
