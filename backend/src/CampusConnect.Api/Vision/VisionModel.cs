@@ -39,9 +39,12 @@ public sealed class OpenAiCompatibleVisionModel(HttpClient http, string apiKey, 
                 } }
             }
         };
-        using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };
-        request.Headers.Authorization = new("Bearer", apiKey);
-        using var response = await http.SendAsync(request, ct);
+        using var response = await Chat.HttpRetry.Send(http, () =>
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };
+            request.Headers.Authorization = new("Bearer", apiKey);
+            return request;
+        }, ct);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonObject>(ct);
         var text = json?["choices"]?[0]?["message"]?["content"]?.GetValue<string>()?.Trim();

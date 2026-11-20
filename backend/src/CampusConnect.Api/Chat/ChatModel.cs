@@ -55,12 +55,13 @@ public sealed class OpenAiCompatibleChatModel(HttpClient http, string apiKey, st
     {
         var messages = new List<object> { new { role = "system", content = system } };
         messages.AddRange(turns.Select(t => (object)new { role = t.Role, content = t.Text }));
-        using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
+        var payload = new { model, messages, max_tokens = maxTokens, temperature = 0.2 };
+        using var response = await HttpRetry.Send(http, () =>
         {
-            Content = System.Net.Http.Json.JsonContent.Create(new { model, messages, max_tokens = maxTokens, temperature = 0.2 })
-        };
-        request.Headers.Authorization = new("Bearer", apiKey);
-        using var response = await http.SendAsync(request, cancellationToken);
+            var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = System.Net.Http.Json.JsonContent.Create(payload) };
+            request.Headers.Authorization = new("Bearer", apiKey);
+            return request;
+        }, cancellationToken);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>(cancellationToken);
         var text = json?["choices"]?[0]?["message"]?["content"]?.GetValue<string>()?.Trim();

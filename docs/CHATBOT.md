@@ -36,5 +36,5 @@ curl -s $API/chat -H "Authorization: Bearer $TOKEN" -H 'Content-Type: applicatio
 |---|---|
 | `VISION_API_KEY` | Free Google Gemini key (aistudio.google.com). Without it `analyze` returns 503 `AI_UNAVAILABLE` and the app falls back to manual choice. |
 | `VISION_BASE_URL` | Default `https://generativelanguage.googleapis.com/v1beta/openai`. |
-| `VISION_MODEL` | Default `gemini-2.5-flash`. |
+| `VISION_MODEL` | Default `gemini-flash-latest` (alias; `gemini-2.5-flash` is retired for new users). |
 | `UPLOADS_DIR` | Photo directory. Photos are lost if the server disk is replaced; back it up or move to S3 later. |
