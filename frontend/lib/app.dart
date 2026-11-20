@@ -36,10 +36,10 @@ final class CampusConnectApp extends StatelessWidget {
               if (session.user == null || path == '/assistant') {
                 return const SizedBox.shrink();
               }
-              return Positioned(
-                right: 16,
-                bottom: MediaQuery.paddingOf(context).bottom + 96,
-                child: ChatFab(onPressed: () => router.push('/assistant')),
+              return Positioned.fill(
+                child: DraggableChatFab(
+                  onPressed: () => router.push('/assistant'),
+                ),
               );
             },
           ),
