@@ -77,6 +77,8 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
     _controller = ComplaintListController(
       dependencies.complaints,
       department: widget.department,
+      cache: dependencies.cache,
+      scope: widget.basePath,
     );
     final status = widget.initialStatus;
     if (status != null || widget.initialOverdue) {
@@ -93,7 +95,7 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
         ),
       );
     } else {
-      _controller!.refresh();
+      _controller!.start();
     }
     // A live notification means a complaint was added or just changed.
     _live = dependencies.notifications..addListener(_checkForUpdates);
@@ -112,7 +114,18 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
           })
           .catchError((Object _) {});
     }
-    if (widget.student) _loadCounts();
+    if (widget.student) {
+      final cached = dependencies.cache.read<Map<ComplaintStatus?, int>>(
+        _countsCacheKey,
+      );
+      if (cached != null) _counts = cached;
+      _loadCounts();
+    }
+  }
+
+  String get _countsCacheKey {
+    final f = _controller!.filter;
+    return 'list-counts:${widget.basePath}|${f.search}|${f.category}|${f.departmentId}|${f.overdueOnly}|${f.year}';
   }
 
   ComplaintFilter? _countsKey;
@@ -145,12 +158,11 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
           ),
       ]);
       if (mounted) {
-        setState(
-          () => _counts = {
-            for (var i = 0; i < statuses.length; i++)
-              statuses[i]: pages[i].total,
-          },
-        );
+        final counts = {
+          for (var i = 0; i < statuses.length; i++) statuses[i]: pages[i].total,
+        };
+        AppScope.of(context).cache.write(_countsCacheKey, counts);
+        setState(() => _counts = counts);
       }
     } on Exception {
       // List errors are shown independently of optional filter counts.

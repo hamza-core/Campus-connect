@@ -1,17 +1,35 @@
 import '../../../core/controllers/base_controller.dart';
 import '../../../core/errors/app_exception.dart';
+import '../../../core/utils/session_cache.dart';
 import '../../../data/repositories/complaint_repository.dart';
 import '../../../domain/enums/complaint_status.dart';
 import '../../../domain/models/complaint.dart';
 
 final class ComplaintDetailController extends BaseController {
-  ComplaintDetailController(this._repository, this.id);
+  ComplaintDetailController(this._repository, this.id, [this._cache]);
   final ComplaintRepository _repository;
+  final SessionCache? _cache;
   final String id;
   Complaint? complaint;
   bool forbidden = false;
   bool saving = false;
   String? actionError;
+
+  Object get _key => ('complaint', id);
+
+  void _remember() {
+    final value = complaint;
+    if (value != null) _cache?.write(_key, value);
+  }
+
+  /// First load: a complaint opened before appears at once and is refreshed
+  /// quietly; only a first-ever open shows a placeholder.
+  Future<void> open() {
+    final cached = _cache?.read<Complaint>(_key);
+    if (cached == null) return load();
+    showCached(() => complaint = cached);
+    return refreshSilently();
+  }
 
   Future<void> load() => run(
     () async {
@@ -25,6 +43,7 @@ final class ComplaintDetailController extends BaseController {
     onSuccess: (value) {
       forbidden = false;
       complaint = value;
+      _remember();
     },
   );
 
@@ -41,6 +60,7 @@ final class ComplaintDetailController extends BaseController {
         return;
       }
       complaint = next;
+      _remember();
       safeNotify();
     } on Object {
       // Keep showing the last known data.
@@ -72,6 +92,7 @@ final class ComplaintDetailController extends BaseController {
         status: status,
         remark: remark.trim().isEmpty ? null : remark.trim(),
       );
+      _remember();
     } on ConflictException catch (error) {
       actionError = error.message;
       await load();
@@ -97,6 +118,7 @@ final class ComplaintDetailController extends BaseController {
         rating: rating,
         comment: comment,
       );
+      _remember();
     } on ConflictException catch (error) {
       actionError = error.message;
       await load();

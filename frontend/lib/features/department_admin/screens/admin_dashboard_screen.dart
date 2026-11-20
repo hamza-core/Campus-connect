@@ -43,6 +43,8 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   List<RecurringIssue>? _recurring;
   bool _chartsFailed = false;
 
+  Object get _chartsKey => ('admin-charts', widget.complaintsPath);
+
   @override
   void initState() {
     super.initState();
@@ -57,8 +59,19 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_controller == null) {
-      _controller = AdminDashboardController(AppScope.of(context).dashboard)
-        ..load();
+      final dependencies = AppScope.of(context);
+      _controller = AdminDashboardController(
+        dependencies.dashboard,
+        dependencies.cache,
+        widget.complaintsPath,
+      )..open();
+      final charts = dependencies.cache.read<_Charts>(_chartsKey);
+      if (charts != null) {
+        _byStatus = charts.status;
+        _trend = charts.trend;
+        _recurring = charts.recurring;
+        _departments = charts.departments;
+      }
       _loadCharts();
     }
   }
@@ -75,6 +88,8 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ? await dashboard.byDepartment()
           : null;
       if (!mounted) return;
+      AppScope.of(context).cache
+          .write(_chartsKey, _Charts(status, trend, recurring, departments));
       setState(() {
         _byStatus = status;
         _trend = trend;
@@ -587,4 +602,13 @@ final class _Metric extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// What the charts last showed, kept so switching back paints them at once.
+final class _Charts {
+  const _Charts(this.status, this.trend, this.recurring, this.departments);
+  final List<StatusStat> status;
+  final List<TrendPoint> trend;
+  final List<RecurringIssue> recurring;
+  final List<DepartmentStat>? departments;
 }

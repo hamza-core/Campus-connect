@@ -168,7 +168,10 @@ Future<void> _check(
 
 final class _Harness {
   _Harness() {
-    auth = AuthController(dependencies.auth)..ready = true;
+    auth = AuthController(
+      dependencies.auth,
+      onSessionChange: dependencies.cache.clear,
+    )..ready = true;
     router = AppRouter.authenticated(
       auth: auth,
       featureRoutes: featureRoutes(auth),

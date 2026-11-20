@@ -66,7 +66,8 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen>
     _controller ??= ComplaintDetailController(
       AppScope.of(context).complaints,
       widget.id,
-    )..load();
+      AppScope.of(context).cache,
+    )..open();
     _live ??= AppScope.of(context).notifications..addListener(_checkForUpdates);
   }
 

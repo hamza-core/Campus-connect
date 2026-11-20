@@ -3,9 +3,13 @@ import '../../../data/repositories/auth_repository.dart';
 import '../../../domain/models/app_user.dart';
 
 final class AuthController extends BaseController {
-  AuthController(this._repository);
+  AuthController(this._repository, {this.onSessionChange});
 
   final AuthRepository _repository;
+
+  /// Called when the signed-in user may change (sign in, out, expiry), so
+  /// per-user caches can be dropped.
+  final void Function()? onSessionChange;
   AppUser? user;
   bool ready = false;
   bool signedOut = false;
@@ -46,6 +50,7 @@ final class AuthController extends BaseController {
 
   Future<void> _authenticate(Future<AppUser> Function() operation) {
     final session = ++_session;
+    onSessionChange?.call();
     signedOut = false;
     sessionMessage = null;
     return run(
@@ -58,6 +63,7 @@ final class AuthController extends BaseController {
 
   Future<void> signOut() async {
     ++_session;
+    onSessionChange?.call();
     await _repository.logout();
     user = null;
     signedOut = true;
@@ -67,6 +73,7 @@ final class AuthController extends BaseController {
 
   void expireSession() {
     ++_session;
+    onSessionChange?.call();
     user = null;
     signedOut = false;
     sessionMessage = 'Your session expired. Please sign in again.';

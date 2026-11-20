@@ -17,6 +17,16 @@ abstract class BaseController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  /// Shows data that is already known without a loading state. Callers follow
+  /// it with a quiet refresh so the screen never flashes a placeholder.
+  void showCached(VoidCallback apply, {bool isEmpty = false}) {
+    if (_disposed) return;
+    apply();
+    _state = isEmpty ? ViewState.empty : ViewState.success;
+    _errorMessage = null;
+    safeNotify();
+  }
+
   Future<void> run<T>(
     Future<T> Function() action, {
     required void Function(T) onSuccess,

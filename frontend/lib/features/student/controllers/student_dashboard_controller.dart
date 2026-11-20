@@ -1,4 +1,5 @@
 import '../../../core/controllers/base_controller.dart';
+import '../../../core/utils/session_cache.dart';
 import '../../../domain/models/paged_result.dart';
 import '../../../data/repositories/complaint_repository.dart';
 import '../../../domain/enums/complaint_status.dart';
@@ -7,8 +8,10 @@ import '../../../domain/models/complaint_summary.dart';
 import '../../../domain/models/dashboard_stats.dart';
 
 final class StudentDashboardController extends BaseController {
-  StudentDashboardController(this._repository);
+  StudentDashboardController(this._repository, [this._cache]);
   final ComplaintRepository _repository;
+  final SessionCache? _cache;
+  static const _key = 'student-dashboard';
   DashboardStats? stats;
   List<ComplaintSummary> recent = const [];
 
@@ -39,6 +42,19 @@ final class StudentDashboardController extends BaseController {
       rejected: pages[4].total,
       overdue: 0,
     );
+    _cache?.write(_key, (stats!, recent));
+  }
+
+  /// First load of the screen: shows the last-known numbers at once (if any)
+  /// and refreshes them quietly; only a first-ever visit shows a placeholder.
+  Future<void> open() {
+    final cached = _cache?.read<(DashboardStats, List<ComplaintSummary>)>(_key);
+    if (cached == null) return load();
+    showCached(() {
+      stats = cached.$1;
+      recent = cached.$2;
+    });
+    return refreshSilently();
   }
 
   Future<void> load() => run(_fetch, onSuccess: _apply);

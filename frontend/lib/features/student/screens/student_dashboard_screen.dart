@@ -44,8 +44,10 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller ??= StudentDashboardController(AppScope.of(context).complaints)
-      ..load();
+    _controller ??= StudentDashboardController(
+      AppScope.of(context).complaints,
+      AppScope.of(context).cache,
+    )..open();
     _live ??= AppScope.of(context).notifications..addListener(_checkForUpdates);
   }
 
