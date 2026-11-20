@@ -103,7 +103,11 @@ final class StudentStat extends StatelessWidget {
                     const SizedBox(height: 8),
                     number,
                     const SizedBox(height: 4),
-                    Text(label, style: labelStyle),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(label, maxLines: 1, style: labelStyle),
+                    ),
                   ],
                 ),
         ),
