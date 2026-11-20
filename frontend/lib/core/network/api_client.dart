@@ -61,6 +61,42 @@ final class ApiClient {
     throw _errorFor(status, payload);
   }
 
+  /// Multipart upload of one file as form field `file`.
+  Future<Map<String, Object?>> upload(
+    String endpoint,
+    List<int> bytes,
+    String filename,
+  ) async {
+    final token = _tokens.accessToken;
+    final request = http.MultipartRequest('POST', _baseUrl.resolve(endpoint))
+      ..headers['Accept'] = 'application/json'
+      ..files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: filename),
+      );
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    final http.Response response;
+    try {
+      response = await _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(const Duration(seconds: 60));
+    } on http.ClientException {
+      throw const NetworkException();
+    } on TimeoutException {
+      throw const NetworkException('The upload timed out. Try again.');
+    }
+    if (response.statusCode == 401 && token != null) {
+      _tokens.clearIfCurrent(token);
+    }
+    final payload = _decode(response.bodyBytes);
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300 &&
+        payload != null) {
+      return payload;
+    }
+    throw _errorFor(response.statusCode, payload);
+  }
+
   /// Like [request] but returns the raw text body (used for the CSV export).
   Future<String> requestText(
     String method,

@@ -18,6 +18,7 @@ final class SubmitComplaintForm extends StatelessWidget {
     required this.title,
     required this.description,
     required this.location,
+    required this.onUseCategory,
   });
   final ComplaintCategory category;
   final SubmitComplaintController controller;
@@ -25,6 +26,7 @@ final class SubmitComplaintForm extends StatelessWidget {
   final TextEditingController title;
   final TextEditingController description;
   final TextEditingController location;
+  final ValueChanged<ComplaintCategory> onUseCategory;
 
   @override
   Widget build(BuildContext context) => Form(
@@ -70,7 +72,7 @@ final class SubmitComplaintForm extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final issue in category.subIssues)
+              for (final issue in controller.issueOptions(category))
                 FilterChip(
                   label: Text(issue),
                   selected: controller.subIssue == issue,
@@ -87,6 +89,11 @@ final class SubmitComplaintForm extends StatelessWidget {
                 ),
             ],
           ),
+        ),
+        _SuggestionCard(
+          controller: controller,
+          category: category,
+          onUseCategory: onUseCategory,
         ),
         const _FieldLabel('Title'),
         TextFormField(
@@ -165,10 +172,10 @@ final class SubmitComplaintForm extends StatelessWidget {
                   controller.picking ||
                   controller.state == ViewState.loading
               ? null
-              : controller.pickPhotos,
+              : () => controller.pickPhotos(description: description.text),
         ),
         const Text(
-          'Photos are saved on this device only. Staff cannot see them.',
+          'Add a photo and our AI suggests the issue. Photos are uploaded and attached to your complaint.',
         ),
         if (controller.photoMessage case final message?)
           ErrorView(message: message),
@@ -247,4 +254,98 @@ final class _FieldLabel extends StatelessWidget {
           ?.copyWith(fontWeight: FontWeight.w800),
     ),
   );
+}
+
+final class _SuggestionCard extends StatelessWidget {
+  const _SuggestionCard({
+    required this.controller,
+    required this.category,
+    required this.onUseCategory,
+  });
+  final SubmitComplaintController controller;
+  final ComplaintCategory category;
+  final ValueChanged<ComplaintCategory> onUseCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = controller.suggestion;
+    if (controller.suggesting) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 10),
+            Text('AI is looking at your photo…'),
+          ],
+        ),
+      );
+    }
+    if (value == null) {
+      final message = controller.suggestionMessage;
+      return message == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(message),
+            );
+    }
+    final suggested = ComplaintCategory.values.firstWhere(
+      (c) => c.apiValue == value.category,
+      orElse: () => category,
+    );
+    final differs = suggested != category;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: .07),
+        border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'AI suggests: ${value.issue}${value.isNewIssue ? ' (new)' : ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          if (value.summary.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(value.summary),
+          ],
+          if (differs) ...[
+            const SizedBox(height: 6),
+            Text('This looks like ${suggested.label}, not ${category.label}.'),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              FilledButton.tonal(
+                onPressed: controller.applySuggestion,
+                child: Text('Use "${value.issue}"'),
+              ),
+              if (differs)
+                OutlinedButton(
+                  onPressed: () => onUseCategory(suggested),
+                  child: Text('Switch to ${suggested.label}'),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

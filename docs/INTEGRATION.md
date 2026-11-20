@@ -66,8 +66,8 @@ A foreground service (`flutter_foreground_task`, type `dataSync`) keeps the proc
 ## 6. Auto-refresh
 Lists and dashboards call a quiet refresh every 10 s (`core/utils/auto_refresh.dart`), when the app resumes, and on a live notification. It never shows a loading state, changes nothing if the data is the same, and is skipped while the user is scrolled down a list. There is no server push to admins yet; new complaints appear within ~10 s.
 
-## 7. Photos
-No upload endpoint (removed). Up to 3 photos per complaint (≤ 5 MB each) are stored **on the device** (sembast database keyed by account + complaint id) and shown only there. The UI says so.
+## 7. Photos and AI issue detection
+Up to 3 photos per complaint (≤ 5 MB). Each pick is uploaded with `POST /uploads` (multipart, field `file`) and the returned URL is sent as `imageUrls` on `POST /complaints`; a copy also stays on the device (sembast) for the detail screen. The first photo triggers `POST /complaints/analyze`, which suggests category, issue label and priority (503 `AI_UNAVAILABLE` → the app says to choose manually). The "kind of problem" chips come from `GET /meta/frequent-issues?category=` (most reported labels in the database) and fall back to the brief's examples while the database is empty. Showing server photos to department admins in the detail screen is not built yet.
 
 ## 8. Status changes without lost updates
 Read the complaint → show buttons from `allowedTransitions` (empty for students and the super admin) → `PATCH …/status` with the `rowVersion` from that read. `200` replace local copy; `409` reload and tell the user; `422` show fields (remark required for `RESOLVED` and `REJECTED`).

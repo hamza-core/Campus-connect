@@ -4,7 +4,10 @@ import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../core/network/token_store.dart';
 import '../core/storage/secure_token_storage.dart';
+import '../data/repositories/assist_repository.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/repositories/mock/mock_assist_repository.dart';
+import '../data/repositories/remote/remote_assist_repository.dart';
 import '../data/repositories/complaint_repository.dart';
 import '../data/realtime/notification_realtime.dart';
 import '../data/realtime/signalr_notification_realtime.dart';
@@ -29,6 +32,7 @@ final class AppDependencies {
         auth: auth,
         complaints: complaints,
         dashboard: MockDashboardRepository(auth, complaints),
+        assist: const MockAssistRepository(),
         notifications: NotificationController(
           const MockNotificationRepository(),
           const NoopNotificationRealtime(),
@@ -49,6 +53,7 @@ final class AppDependencies {
         auth: RemoteAuthRepository(api, tokens, const SecureTokenStorage()),
         complaints: RemoteComplaintRepository(api),
         dashboard: RemoteDashboardRepository(api),
+        assist: RemoteAssistRepository(api),
         notifications: NotificationController(
           RemoteNotificationRepository(api),
           SignalRNotificationRealtime(
@@ -74,6 +79,7 @@ final class AppDependencies {
     required this.auth,
     required this.complaints,
     required this.dashboard,
+    required this.assist,
     required this.notifications,
     this.tokens,
   });
@@ -82,6 +88,7 @@ final class AppDependencies {
   final AuthRepository auth;
   final ComplaintRepository complaints;
   final DashboardRepository dashboard;
+  final AssistRepository assist;
   final NotificationController notifications;
   final TokenStore? tokens;
 }

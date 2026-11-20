@@ -60,6 +60,7 @@ final class RemoteComplaintRepository implements ComplaintRepository {
     Priority priority = Priority.medium,
     String? location,
     bool anonymousToStaff = false,
+    List<String> imageUrls = const [],
   }) async {
     final response = await _api.request(
       'POST',
@@ -73,6 +74,7 @@ final class RemoteComplaintRepository implements ComplaintRepository {
         if (location != null && location.trim().isNotEmpty)
           'location': location.trim(),
         if (anonymousToStaff) 'anonymousToStaff': true,
+        if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       },
     );
     return Complaint.fromJson(response['data'] as Map<String, Object?>);

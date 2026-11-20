@@ -35,6 +35,7 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
       AppScope.of(context).complaints,
       ComplaintPhotoStore.instance,
       widget.ownerId,
+      AppScope.of(context).assist,
     );
   }
 
@@ -171,6 +172,7 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                               item: item,
                               onTap: () {
                                 _controller!.resetForCategory();
+                                _controller!.loadIssues(item);
                                 setState(() => _category = item);
                               },
                             ),
@@ -186,6 +188,12 @@ final class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     title: _title,
                     description: _description,
                     location: _location,
+                    onUseCategory: (value) {
+                      _controller!.resetForCategory();
+                      _controller!.applySuggestion();
+                      _controller!.loadIssues(value);
+                      setState(() => _category = value);
+                    },
                   ),
               ],
             );

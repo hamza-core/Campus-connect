@@ -25,6 +25,7 @@ abstract interface class ComplaintRepository {
     Priority priority = Priority.medium,
     String? location,
     bool anonymousToStaff = false,
+    List<String> imageUrls = const [],
   });
 
   Future<Complaint> submitFeedback({
