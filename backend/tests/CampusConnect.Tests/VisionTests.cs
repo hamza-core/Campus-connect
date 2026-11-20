@@ -40,6 +40,8 @@ public class VisionUnitTests
         var fresh = IssueAnalyzer.Parse("{\"category\":\"nonsense\",\"issue\":\"Broken\\u0007 chair\",\"priority\":\"urgent\"}", known);
         Assert.Equal(("CAFETERIA", "Broken chair", "MEDIUM", true), (fresh.Category, fresh.Issue, fresh.Priority, fresh.IsNewIssue));
         Assert.Throws<ApiError>(() => IssueAnalyzer.Parse("no json here", known));
+        var broken = Assert.Throws<ApiError>(() => IssueAnalyzer.Parse("{\"category\": \"LAB_IT\", \"issue\": }", known));
+        Assert.Equal(503, broken.Status);
     }
 }
 
