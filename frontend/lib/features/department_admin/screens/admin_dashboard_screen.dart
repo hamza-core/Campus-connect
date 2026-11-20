@@ -112,11 +112,10 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     super.dispose();
   }
 
-  int _insight = 0;
-
   static const _amber = Color(0xFFB45309);
   static const _blue = Color(0xFF1D4ED8);
   static const _red = Color(0xFFB91C1C);
+  static const _green = Color(0xFF15803D);
 
   static String _hours(double? h) => h == null
       ? '—'
@@ -124,91 +123,233 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       ? '${h.toStringAsFixed(1)} h'
       : '${(h / 24).toStringAsFixed(1)} d';
 
-  Widget _stats(BuildContext context, AdminDashboardController controller) =>
+  void _open(String query) => context.go('${widget.complaintsPath}?$query');
+
+  /// Dark header: who and where, one status line, and the four numbers that
+  /// matter, each opening the matching filtered list.
+  Widget _hero(BuildContext context, AdminDashboardController controller) =>
       ListenableBuilder(
         listenable: controller,
         builder: (context, child) {
-          if (controller.state == ViewState.loading) return const ShimmerList();
-          if (controller.state == ViewState.error) {
-            return ErrorView(
-              message: controller.errorMessage!,
-              onRetry: controller.load,
-            );
-          }
+          final theme = Theme.of(context);
+          final onPrimary = theme.colorScheme.onPrimary;
           final stats = controller.stats;
-          if (stats == null) return const SizedBox.shrink();
-          void open(String query) =>
-              context.go('${widget.complaintsPath}?$query');
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Needs attention',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
+          final open = stats == null ? 0 : stats.pending + stats.inProgress;
+          final line = stats == null
+              ? (controller.state == ViewState.error ? '' : 'Loading…')
+              : open == 0 && stats.overdue == 0
+              ? 'Everything is under control'
+              : '$open open · ${stats.overdue} overdue';
+          return HeroHeader(
+            bottomRadius: 32,
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (widget.showChart ? 'Super admin' : 'Department admin')
+                      .toUpperCase(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: onPrimary.withValues(alpha: .75),
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
                   ),
-                  TextButton(
-                    onPressed: () => context.go(widget.complaintsPath),
-                    child: const Text('All complaints'),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.title,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    color: onPrimary,
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Kpi(
-                      label: 'Pending',
-                      value: '${stats.pending}',
-                      color: _amber,
-                      icon: Icons.schedule_rounded,
-                      onTap: () => open('status=PENDING'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Kpi(
-                      label: 'In progress',
-                      value: '${stats.inProgress}',
-                      color: _blue,
-                      icon: Icons.play_arrow_rounded,
-                      onTap: () => open('status=IN_PROGRESS'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Kpi(
-                      label: 'Overdue',
-                      value: '${stats.overdue}',
-                      color: _red,
-                      icon: Icons.warning_amber_rounded,
-                      onTap: () => open('overdue=true'),
+                ),
+                if (line.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    line,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: onPrimary.withValues(alpha: .85),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              _Summary(
-                items: [
-                  ('Total', '${stats.total}'),
-                  ('Resolved', '${stats.resolved}'),
-                  ('Rejected', '${stats.rejected}'),
-                  ('Avg. resolution', _hours(stats.avgResolutionHours)),
-                  (
-                    'Avg. rating',
-                    stats.avgRating == null
-                        ? '—'
-                        : '${stats.avgRating!.toStringAsFixed(1)} / 5',
+                const SizedBox(height: 18),
+                if (stats == null)
+                  const _KpiPlaceholder()
+                else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Kpi(
+                          label: 'Pending',
+                          value: stats.pending,
+                          color: _amber,
+                          icon: Icons.schedule_rounded,
+                          onTap: () => _open('status=PENDING'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _Kpi(
+                          label: 'In progress',
+                          value: stats.inProgress,
+                          color: _blue,
+                          icon: Icons.autorenew_rounded,
+                          onTap: () => _open('status=IN_PROGRESS'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Kpi(
+                          label: 'Overdue',
+                          value: stats.overdue,
+                          color: _red,
+                          icon: Icons.warning_amber_rounded,
+                          alert: stats.overdue > 0,
+                          onTap: () => _open('overdue=true'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _Kpi(
+                          label: 'Resolved',
+                          value: stats.resolved,
+                          color: _green,
+                          icon: Icons.check_circle_outline_rounded,
+                          onTap: () => _open('status=RESOLVED'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
+              ],
+            ),
           );
         },
       );
+
+  Widget _overview(
+    BuildContext context,
+    AdminDashboardController controller,
+  ) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, child) {
+      final stats = controller.stats;
+      if (stats == null) {
+        return controller.state == ViewState.error
+            ? ErrorView(
+                message: controller.errorMessage!,
+                onRetry: controller.load,
+              )
+            : const SizedBox.shrink();
+      }
+      final theme = Theme.of(context);
+      final rate = stats.total == 0 ? 0.0 : stats.resolved / stats.total;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Overview',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go(widget.complaintsPath),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                iconAlignment: IconAlignment.end,
+                label: const Text('All complaints'),
+              ),
+            ],
+          ),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      _RateRing(value: rate),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Resolution rate',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${stats.resolved} of ${stats.total} complaints resolved'
+                              '${stats.rejected > 0 ? ' · ${stats.rejected} rejected' : ''}',
+                              style: const TextStyle(
+                                color: Color(0xFF5F6B68),
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Divider(height: 1),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Metric(
+                          label: 'Total',
+                          child: Text('${stats.total}'),
+                        ),
+                      ),
+                      Expanded(
+                        child: _Metric(
+                          label: 'Avg. resolution',
+                          child: Text(_hours(stats.avgResolutionHours)),
+                        ),
+                      ),
+                      Expanded(
+                        child: _Metric(
+                          label: 'Avg. rating',
+                          child: stats.avgRating == null
+                              ? const Text('—')
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      color: Color(0xFFF59E0B),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(stats.avgRating!.toStringAsFixed(1)),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
 
   Widget _insights(BuildContext context) {
     if (_chartsFailed && _byStatus == null) {
@@ -218,15 +359,6 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       );
     }
     if (_byStatus == null || _trend == null) return const ShimmerList();
-    final tabs = <(String, Widget)>[
-      ('Status', StatusDonutChart(stats: _byStatus!)),
-      ('Trend', TrendLineChart(points: _trend!)),
-      if (_recurring != null)
-        ('Issues', RecurringIssuesCard(issues: _recurring!)),
-      if (widget.showChart && _departments != null)
-        ('Departments', DepartmentComplaintChart(departments: _departments!)),
-    ];
-    final index = _insight.clamp(0, tabs.length - 1);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -236,21 +368,17 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<int>(
-            showSelectedIcon: false,
-            segments: [
-              for (var i = 0; i < tabs.length; i++)
-                ButtonSegment(value: i, label: Text(tabs[i].$1)),
-            ],
-            selected: {index},
-            onSelectionChanged: (value) =>
-                setState(() => _insight = value.single),
-          ),
-        ),
+        TrendLineChart(points: _trend!),
         const SizedBox(height: 12),
-        tabs[index].$2,
+        StatusDonutChart(stats: _byStatus!),
+        if (_recurring != null) ...[
+          const SizedBox(height: 12),
+          RecurringIssuesCard(issues: _recurring!),
+        ],
+        if (widget.showChart && _departments != null) ...[
+          const SizedBox(height: 12),
+          DepartmentComplaintChart(departments: _departments!),
+        ],
       ],
     );
   }
@@ -258,45 +386,20 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final controller = _controller!;
-    final textTheme = Theme.of(context).textTheme;
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
         children: [
-          HeroHeader(
-            bottomRadius: 32,
-            padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.showChart ? 'Super admin' : 'Department admin',
-                  style: textTheme.labelLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary
-                        .withValues(alpha: .8),
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  widget.title,
-                  style: textTheme.headlineMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _hero(context, controller),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _stats(context, controller),
-                const SizedBox(height: 20),
+                _overview(context, controller),
+                const SizedBox(height: 16),
                 _insights(context),
               ],
             ),
@@ -315,12 +418,16 @@ final class _Kpi extends StatelessWidget {
     required this.color,
     required this.icon,
     required this.onTap,
+    this.alert = false,
   });
   final String label;
-  final String value;
+  final int value;
   final Color color;
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Draws attention (a red outline) when something needs action now.
+  final bool alert;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -330,37 +437,54 @@ final class _Kpi extends StatelessWidget {
     child: Material(
       color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFCFC9B8), width: 1.5),
+        borderRadius: BorderRadius.circular(20),
+        side: alert
+            ? BorderSide(color: color.withValues(alpha: .55), width: 2)
+            : BorderSide.none,
       ),
       child: InkWell(
         customBorder: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
         ),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(
             children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(height: 10),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                  height: 1,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$value',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                            height: 1.05,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF5F6B68),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF5F6B68),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: .12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: Icon(icon, color: color, size: 22),
                 ),
               ),
             ],
@@ -371,39 +495,96 @@ final class _Kpi extends StatelessWidget {
   );
 }
 
-/// Quiet secondary numbers, so they do not compete with the headline ones.
-final class _Summary extends StatelessWidget {
-  const _Summary({required this.items});
-  final List<(String, String)> items;
+/// Same footprint as the real tiles, so nothing jumps when numbers arrive.
+final class _KpiPlaceholder extends StatelessWidget {
+  const _KpiPlaceholder();
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Wrap(
-        runSpacing: 12,
-        children: [
-          for (final (label, value) in items)
-            FractionallySizedBox(
-              widthFactor: .5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  Text(label, style: const TextStyle(color: Color(0xFF5F6B68))),
-                ],
+  Widget build(BuildContext context) {
+    Widget box() => Expanded(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const SizedBox(height: 70),
+      ),
+    );
+    return Column(
+      children: [
+        Row(children: [box(), const SizedBox(width: 10), box()]),
+        const SizedBox(height: 10),
+        Row(children: [box(), const SizedBox(width: 10), box()]),
+      ],
+    );
+  }
+}
+
+/// Circular progress with the percentage in the middle.
+final class _RateRing extends StatelessWidget {
+  const _RateRing({required this.value});
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (value * 100).round();
+    return Semantics(
+      label: '$percent percent resolved',
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: 84,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.expand(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: value),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (context, v, child) => CircularProgressIndicator(
+                  value: v,
+                  strokeWidth: 9,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: const Color(0xFFE4E0D3),
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
-        ],
+            Text(
+              '$percent%',
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
       ),
-    ),
+    );
+  }
+}
+
+/// A small labelled number under the overview.
+final class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.child});
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      DefaultTextStyle.merge(
+        style: Theme.of(context).textTheme.titleLarge
+            ?.copyWith(fontWeight: FontWeight.w800),
+        child: child,
+      ),
+      const SizedBox(height: 2),
+      Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Color(0xFF5F6B68), fontSize: 12.5),
+      ),
+    ],
   );
 }

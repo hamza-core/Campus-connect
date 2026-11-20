@@ -165,26 +165,36 @@ final class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                         featured: true,
                       ),
                       const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          StudentStat(
-                            label: 'Pending',
-                            value: stats.pending,
-                            image: 'pending.jpg',
-                          ),
-                          StudentStat(
-                            label: 'In progress',
-                            value: stats.inProgress,
-                            image: 'in-progress.jpg',
-                          ),
-                          StudentStat(
-                            label: 'Resolved',
-                            value: stats.resolved,
-                            image: 'resolved.jpg',
-                          ),
-                        ],
+                      // Three equal-width, equal-height cards.
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: StudentStat(
+                                label: 'Pending',
+                                value: stats.pending,
+                                image: 'pending.jpg',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: StudentStat(
+                                label: 'In progress',
+                                value: stats.inProgress,
+                                image: 'in-progress.jpg',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: StudentStat(
+                                label: 'Resolved',
+                                value: stats.resolved,
+                                image: 'resolved.jpg',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 20),
                       Text(
