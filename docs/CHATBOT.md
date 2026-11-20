@@ -5,7 +5,10 @@ Backend-only; no app screen. Answers come from retrieval over `backend/src/Campu
 ## Configuration (environment, never committed)
 | Variable | Meaning |
 |---|---|
-| `ANTHROPIC_API_KEY` | Enables `mode: "ai"`. Without it the endpoint still works and returns the best matching note (`mode: "retrieval"`). |
+| `LLM_API_KEY` | Any OpenAI-compatible provider (free tiers: Groq, Google Gemini, OpenRouter). Enables `mode: "ai"`. Wins over `ANTHROPIC_API_KEY`. |
+| `LLM_BASE_URL` | Default `https://api.groq.com/openai/v1`. Gemini: `https://generativelanguage.googleapis.com/v1beta/openai`. OpenRouter: `https://openrouter.ai/api/v1`. |
+| `LLM_MODEL` | Default `llama-3.1-8b-instant` (Groq). |
+| `ANTHROPIC_API_KEY` | Optional alternative (Claude). Used only when `LLM_API_KEY` is empty. Without it the endpoint still works and returns the best matching note (`mode: "retrieval"`). |
 | `ANTHROPIC_MODEL` | Default `claude-haiku-5-5`. |
 | `CHAT_MAX_TOKENS` | Default 700. |
 | `Chat__PermitLimit` | Requests per minute per IP, default 20 (429 `RATE_LIMITED`). |
