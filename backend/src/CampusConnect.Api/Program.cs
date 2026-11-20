@@ -38,6 +38,7 @@ builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ComplaintService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddChat(builder.Configuration, builder.Environment);
+builder.Services.AddVision(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSignalR();
 builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
@@ -139,6 +140,7 @@ auth.MapGet("/me", async (CurrentUser user) => Results.Ok(new { data = Views.Use
 app.MapComplaintEndpoints();
 app.MapAnalyticsEndpoints();
 app.MapChatEndpoints();
+app.MapVisionEndpoints();
 app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
 if (args.Contains("--migrate") || args.Contains("--seed"))
 {

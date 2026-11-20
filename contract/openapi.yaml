@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.3.0
+  version: 1.4.0
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
     Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
@@ -129,6 +129,117 @@ paths:
                 properties:
                   data: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /uploads:
+    post:
+      tags: [Assistant]
+      summary: Upload one complaint photo (JPEG, PNG or WebP, max 5 MB, stored on the server)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, url]
+                    properties:
+                      id: { type: string }
+                      url: { type: string, description: Path to fetch the photo (bearer token required) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /uploads/{id}:
+    get:
+      tags: [Assistant]
+      summary: Download a stored photo (bearer token required)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: The image, content: { image/jpeg: { schema: { type: string, format: binary } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /complaints/analyze:
+    post:
+      tags: [Assistant]
+      summary: |
+        STUDENT only. A vision model looks at an uploaded photo (and optional text) and suggests the category,
+        a short issue label and a priority. The model is shown the most frequent labels already reported in
+        each category, so labels converge on a shared, data-driven list. 503 AI_UNAVAILABLE when no model is configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [imageId]
+              properties:
+                imageId: { type: string, description: "`id` from POST /uploads" }
+                description: { type: string, maxLength: 1000 }
+      responses:
+        "200":
+          description: Suggestion
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [category, issue, priority, summary, isNewIssue]
+                    properties:
+                      category: { type: string }
+                      issue: { type: string }
+                      priority: { $ref: "#/components/schemas/Priority" }
+                      summary: { type: string }
+                      isNewIssue: { type: boolean, description: True when the label was not reported before }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { description: AI_UNAVAILABLE, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /meta/frequent-issues:
+    get:
+      tags: [Meta]
+      summary: Most frequently reported issue labels (top 8), optionally for one category
+      parameters:
+        - { name: category, in: query, schema: { type: string, enum: [CAFETERIA, LIBRARY, LAB_IT, ACADEMIC] } }
+      responses:
+        "200":
+          description: Labels with counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [label, count]
+                      properties:
+                        label: { type: string }
+                        count: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /complaints:
     post:
@@ -639,10 +750,9 @@ components:
         imageUrls:
           type: array
           maxItems: 3
-          deprecated: true
+          items: { type: string }
           description: |
-            IGNORED for now. Images are kept on the device by the app; the server stores nothing and returns `[]`.
-            (Server-side image storage was removed; see CHANGELOG 1.2.0.)
+            Up to 3 photo URLs returned by `POST /uploads` (form `/api/v1/uploads/<id>`). Anything else is a 422.
           items: { type: string, format: uri }
         anonymousToStaff:
           type: boolean
@@ -675,7 +785,7 @@ components:
         status: { $ref: "#/components/schemas/ComplaintStatus" }
         priority: { $ref: "#/components/schemas/Priority" }
         location: { type: [string, "null"] }
-        imageUrls: { type: array, items: { type: string, format: uri } }
+        imageUrls: { type: array, items: { type: string }, description: Photo paths from POST /uploads; fetch with the bearer token }
         supportCount: { type: integer, description: Number of "me too" supporters (excluding author) }
         supportedByMe: { type: boolean }
         isOverdue: { type: boolean, description: "Server-computed SLA flag: open longer than SLA for its priority (HIGH 24h, MEDIUM 72h, LOW 7d)" }

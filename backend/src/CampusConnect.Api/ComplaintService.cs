@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CampusConnect.Api;
-public class ComplaintService(AppDb db, CurrentUser current, IHubContext<NotificationHub> hub, ILogger<ComplaintService> log, TimeProvider clock)
+public class ComplaintService(AppDb db, CurrentUser current, IHubContext<NotificationHub> hub, ILogger<ComplaintService> log, TimeProvider clock, Vision.UploadStore uploads)
 {
     public IQueryable<Complaint> Full => db.Complaints.Include(x => x.Author).Include(x => x.Department)
         .Include(x => x.Supports).Include(x => x.Feedback).Include(x => x.Timeline).ThenInclude(x => x.Actor).AsSplitQuery();
@@ -14,6 +14,10 @@ public class ComplaintService(AppDb db, CurrentUser current, IHubContext<Notific
         Scope.Check(c, user); return c;
     }
     // Images are kept on the device for now: any submitted imageUrls are ignored and nothing is stored.
+    private string[] ValidImages(string[]? urls) => (urls ?? []).Distinct().Take(3).Select(u =>
+        Vision.UploadStore.IdFromUrl(u) is { } id && uploads.Find(id) is not null ? u
+        : throw new ApiError(422, "VALIDATION_FAILED", "A photo reference is invalid. Upload the photo again.")).ToArray();
+
     public async Task<object> Create(CreateComplaintRequest r)
     {
         var user = await current.Get(); Scope.Student(user);
@@ -33,7 +37,7 @@ public class ComplaintService(AppDb db, CurrentUser current, IHubContext<Notific
                 {
                     Sequence = counter.Value, Ticket = $"CC-{now.Year}-{counter.Value:D4}", Author = user, Department = department,
                     Category = r.Category, Title = r.Title.Trim(), Description = r.Description.Trim(), Priority = r.Priority ?? "MEDIUM",
-                    SubIssue = r.SubIssue, Location = r.Location, ImageUrls = [], AnonymousToStaff = r.AnonymousToStaff,
+                    SubIssue = r.SubIssue, Location = r.Location, ImageUrls = ValidImages(r.ImageUrls), AnonymousToStaff = r.AnonymousToStaff,
                     CreatedAt = now, UpdatedAt = now, DueAt = Catalog.Due(now, r.Priority ?? "MEDIUM")
                 };
                 c.Timeline.Add(new TimelineEntry { Actor = user, Type = "CREATED", ToStatus = "PENDING", CreatedAt = now });

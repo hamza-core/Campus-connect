@@ -28,3 +28,13 @@ curl -s $API/chat -H "Authorization: Bearer $TOKEN" -H 'Content-Type: applicatio
 curl -s $API/chat -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"message":"What is the status of my latest complaint?"}' | jq
 ```
+
+# Photo analysis (vision) — contract 1.4.0
+`POST /uploads` stores a photo on the server disk (`UPLOADS_DIR`, default `<app>/uploads`; set it outside the deploy folder, e.g. `/home/ubuntu/uploads`). `POST /complaints/analyze {imageId, description?}` sends it to a vision model, which proposes `category`, a short `issue` label and a `priority`. The most frequent labels already in the database (per category) are given to the model, so labels converge on a shared list; `GET /meta/frequent-issues?category=` returns that list (top 8) for the app. `POST /complaints` accepts up to 3 `imageUrls` from `/uploads`.
+
+| Variable | Meaning |
+|---|---|
+| `VISION_API_KEY` | Free Google Gemini key (aistudio.google.com). Without it `analyze` returns 503 `AI_UNAVAILABLE` and the app falls back to manual choice. |
+| `VISION_BASE_URL` | Default `https://generativelanguage.googleapis.com/v1beta/openai`. |
+| `VISION_MODEL` | Default `gemini-2.5-flash`. |
+| `UPLOADS_DIR` | Photo directory. Photos are lost if the server disk is replaced; back it up or move to S3 later. |
