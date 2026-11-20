@@ -1,5 +1,7 @@
 # Rebuilding CampusConnect on AWS from scratch
 
+> **Shortcut:** `./infra/rebuild.sh up` does all of this in one command (and `down` deletes it). See [AWS_ONE_COMMAND.md](AWS_ONE_COMMAND.md), which also explains how to set up AWS credentials on your Mac. This page is the manual version and the reference for what the script builds.
+
 Use this when the AWS services have been deleted (to save credits) and you want to show the app again. A rebuild takes roughly 40 minutes, most of it waiting for the database to be created. Nothing here is secret; the secret values are listed by name only (see step 0).
 
 ## 0. Before deleting anything: save these
