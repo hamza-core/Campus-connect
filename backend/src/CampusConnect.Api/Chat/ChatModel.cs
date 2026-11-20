@@ -42,3 +42,28 @@ public sealed class AnthropicChatModel(string apiKey, string model, int maxToken
         return text.Length > 0 ? text : throw new InvalidOperationException("The model returned no text.");
     }
 }
+
+/// <summary>
+/// Any OpenAI-compatible chat API (Groq, Google Gemini, OpenRouter, ...). Free-tier friendly.
+/// Config: <c>LLM_API_KEY</c>, <c>LLM_BASE_URL</c> (default Groq), <c>LLM_MODEL</c>.
+/// </summary>
+public sealed class OpenAiCompatibleChatModel(HttpClient http, string apiKey, string model, int maxTokens) : IChatModel
+{
+    public bool Available => true;
+
+    public async Task<string> Complete(string system, IReadOnlyList<ChatTurn> turns, CancellationToken cancellationToken)
+    {
+        var messages = new List<object> { new { role = "system", content = system } };
+        messages.AddRange(turns.Select(t => (object)new { role = t.Role, content = t.Text }));
+        using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new { model, messages, max_tokens = maxTokens, temperature = 0.2 })
+        };
+        request.Headers.Authorization = new("Bearer", apiKey);
+        using var response = await http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>(cancellationToken);
+        var text = json?["choices"]?[0]?["message"]?["content"]?.GetValue<string>()?.Trim();
+        return string.IsNullOrEmpty(text) ? throw new InvalidOperationException("The model returned no text.") : text;
+    }
+}
