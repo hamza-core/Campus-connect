@@ -123,13 +123,11 @@ public class ReviewFixTests(ApiFactory factory) : IClassFixture<ApiFactory>
         finally { await Seed.Run(db, factory.SeedPassword); }
     }
     [Fact]
-    public async Task Complaint_api_ignores_submitted_image_urls_because_images_stay_on_the_device()
+    public async Task Complaint_api_rejects_image_urls_that_are_not_server_uploads()
     {
         using var student = await factory.Login("student");
-        var response = await student.PostAsJsonAsync("/api/v1/complaints", new { category = "LIBRARY", title = "Image urls ignored", description = "Submitted image URLs are not stored.", imageUrls = new[] { "https://evil.example/image.jpg" } });
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var data = (await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["data"]!;
-        Assert.Empty(data["imageUrls"]!.AsArray());
+        var response = await student.PostAsJsonAsync("/api/v1/complaints", new { category = "LIBRARY", title = "Image urls rejected", description = "Foreign image URLs are not accepted.", imageUrls = new[] { "https://evil.example/image.jpg" } });
+        Assert.Equal((HttpStatusCode)422, response.StatusCode);
     }
     private sealed class FixedClock : TimeProvider
     {
