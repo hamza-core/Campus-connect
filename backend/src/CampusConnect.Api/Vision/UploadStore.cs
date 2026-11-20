@@ -25,6 +25,12 @@ public sealed class UploadStore(string directory)
         return id;
     }
 
+    private string Sidecar(string id, string kind) => Path.Combine(directory, id + "." + kind);
+    public Task SetOwner(string id, string userId) => File.WriteAllTextAsync(Sidecar(id, "owner"), userId);
+    public string? Owner(string id) => IsId(id) && File.Exists(Sidecar(id, "owner")) ? File.ReadAllText(Sidecar(id, "owner")).Trim() : null;
+    public Task Attach(string id, string complaintId) => File.WriteAllTextAsync(Sidecar(id, "complaint"), complaintId);
+    public string? ComplaintOf(string id) => IsId(id) && File.Exists(Sidecar(id, "complaint")) ? File.ReadAllText(Sidecar(id, "complaint")).Trim() : null;
+
     public (string Path, string Mime)? Find(string id)
     {
         if (!IsId(id) || !Directory.Exists(directory)) return null;

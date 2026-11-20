@@ -30,3 +30,6 @@ Initial contract.
 
 ## 1.4.0 — Photos and AI issue detection
 - Added `POST /uploads`, `GET /uploads/{id}`, `POST /complaints/analyze`, `GET /meta/frequent-issues`; `POST /complaints` now stores up to 3 validated `imageUrls` (previously ignored).
+
+## 1.5.0 — Photo visibility and chat for every role
+- `GET /uploads/{id}` is scoped (uploader or anyone allowed to see the complaint). Uploads can only be attached by their uploader. `/chat` is role-aware: staff-only notes are hidden from students.

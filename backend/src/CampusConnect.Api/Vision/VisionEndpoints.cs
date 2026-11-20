@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace CampusConnect.Api;
@@ -25,20 +26,32 @@ public static class VisionEndpoints
 
     public static IEndpointRouteBuilder MapVisionEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/uploads", async (IFormFile file, Vision.UploadStore store, CancellationToken ct) =>
+        app.MapPost("/api/v1/uploads", async (IFormFile file, Vision.UploadStore store, CurrentUser current, CancellationToken ct) =>
         {
+            var user = await current.Get();
             if (file.Length is 0 or > Vision.UploadStore.MaxBytes) throw new ApiError(422, "VALIDATION_FAILED", "Photo must be 1 byte to 5 MB.");
             await using var stream = file.OpenReadStream();
             var bytes = new byte[file.Length];
             await stream.ReadExactlyAsync(bytes, ct);
             var kind = Vision.UploadStore.Detect(bytes) ?? throw new ApiError(422, "VALIDATION_FAILED", "Only JPEG, PNG or WebP photos are accepted.");
             var id = await store.Save(bytes, kind.Ext, ct);
+            await store.SetOwner(id, user.Id);
             return Results.Json(new { data = new { id, url = Vision.UploadStore.UrlFor(id) } }, statusCode: 201);
         }).DisableAntiforgery().RequireAuthorization().RequireRateLimiting("chat");
 
-        app.MapGet("/api/v1/uploads/{id}", (string id, Vision.UploadStore store) =>
-            store.Find(id) is { } f ? Results.File(f.Path, f.Mime) : Results.Json(new { error = new { code = "NOT_FOUND", message = "Photo not found." } }, statusCode: 404))
-            .RequireAuthorization();
+        // The uploader, or anyone allowed to see the complaint the photo is attached to (same scope rules as the complaint itself).
+        app.MapGet("/api/v1/uploads/{id}", async (string id, Vision.UploadStore store, CurrentUser current, AppDb db, CancellationToken ct) =>
+        {
+            var user = await current.Get();
+            var file = store.Find(id) ?? throw new ApiError(404, "NOT_FOUND", "Photo not found.");
+            if (store.Owner(id) != user.Id)
+            {
+                var complaintId = store.ComplaintOf(id) ?? throw ApiError.Forbidden();
+                var complaint = await db.Complaints.AsNoTracking().SingleOrDefaultAsync(c => c.Id == complaintId, ct) ?? throw ApiError.Forbidden();
+                Scope.Check(complaint, user);
+            }
+            return Results.File(file.Path, file.Mime);
+        }).RequireAuthorization();
 
         app.MapPost("/api/v1/complaints/analyze", async (AnalyzeRequest request, Vision.IssueAnalyzer analyzer, CurrentUser current, CancellationToken ct) =>
         {

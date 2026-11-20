@@ -36,6 +36,14 @@ public class KnowledgeIndexTests
     }
 
     [Fact]
+    public void Staff_notes_are_hidden_from_students()
+    {
+        const string question = "department administrator guide dashboards overdue filters export";
+        Assert.Contains(Index().Search(question), h => h.Chunk.StaffOnly);
+        Assert.DoesNotContain(Index().Search(question, 4, includeStaff: false), h => h.Chunk.StaffOnly);
+    }
+
+    [Fact]
     public void Unrelated_or_empty_queries_return_nothing()
     {
         Assert.Empty(Index().Search("zzzz qqqq xylophone"));

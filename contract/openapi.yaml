@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CampusConnect API
-  version: 1.4.0
+  version: 1.5.0
   description: |
     SINGLE SOURCE OF TRUTH for the frontend <-> backend boundary.
     Backend: ASP.NET Core (.NET 10) / EF Core / SQL Server on AWS (implemented by the backend agent).
@@ -165,12 +165,15 @@ paths:
   /uploads/{id}:
     get:
       tags: [Assistant]
-      summary: Download a stored photo (bearer token required)
+      summary: |
+        Download a stored photo. Allowed for the uploader and for anyone who may see the complaint the photo
+        is attached to (same scope rules as complaints); otherwise 403.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
         "200": { description: The image, content: { image/jpeg: { schema: { type: string, format: binary } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /complaints/analyze:
@@ -448,8 +451,9 @@ paths:
     post:
       tags: [Assistant]
       summary: |
-        Ask the CampusConnect assistant (retrieval-augmented). Answers come from the
-        knowledge files plus the caller's own recent complaints (students only).
+        Ask the CampusConnect assistant (retrieval-augmented), any signed-in role. Answers come from the
+        knowledge files plus the caller's own data: students get their own recent complaints; staff get
+        counts for their scope. Staff-only notes (`staff-*.md`) are never retrieved for students.
         `mode` is `ai` when the language model answered, `retrieval` when no model key
         is configured or the model failed (the best matching note is returned instead).
         Rate limited per client (429 RATE_LIMITED).
