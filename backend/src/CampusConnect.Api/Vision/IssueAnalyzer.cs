@@ -50,7 +50,10 @@ public class IssueAnalyzer(AppDb db, IVisionModel model, UploadStore store, ILog
     {
         var start = reply.IndexOf('{'); var end = reply.LastIndexOf('}');
         if (start < 0 || end <= start) throw new ApiError(503, "AI_UNAVAILABLE", "The assistant could not read that photo. Choose the issue yourself.");
-        using var doc = JsonDocument.Parse(reply[start..(end + 1)]);
+        JsonDocument doc;
+        try { doc = JsonDocument.Parse(reply[start..(end + 1)]); }
+        catch (JsonException) { throw new ApiError(503, "AI_UNAVAILABLE", "The assistant could not read that photo. Choose the issue yourself."); }
+        using var _ = doc;
         string Get(string name) => doc.RootElement.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         var category = Get("category").Trim().ToUpperInvariant();
         if (!Catalog.Categories.Any(c => c.Key == category)) category = Catalog.Categories[0].Key;
