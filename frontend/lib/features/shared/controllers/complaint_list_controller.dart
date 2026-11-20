@@ -69,9 +69,14 @@ final class ComplaintListController extends BaseController {
     () => setFilter(filter.copyWith(search: value.trim())),
   );
 
-  Future<void> setFilter(ComplaintFilter next) {
+  /// Applies a filter. A previously seen result is shown instantly, then
+  /// re-checked in the background so it is never left stale.
+  Future<void> setFilter(ComplaintFilter next) async {
     filter = next;
-    return refresh(useCache: true);
+    final key = _key;
+    final hadCache = _cache.containsKey(key);
+    await refresh(useCache: true);
+    if (hadCache && key == _key) await silentRefresh(force: true);
   }
 
   Future<void> refresh({bool useCache = false}) async {
@@ -104,8 +109,8 @@ final class ComplaintListController extends BaseController {
   /// Quietly re-checks the first page without showing a loading state. The
   /// list only changes when something actually changed (new complaint, new
   /// status), so it never flickers.
-  Future<void> silentRefresh() async {
-    if (state == ViewState.loading || loadingMore) return;
+  Future<void> silentRefresh({bool force = false}) async {
+    if ((state == ViewState.loading && !force) || loadingMore) return;
     final generation = _generation;
     final key = _key;
     try {
@@ -117,7 +122,11 @@ final class ComplaintListController extends BaseController {
           items.length >= next.length &&
           [
             for (var i = 0; i < next.length; i++)
-              items[i].id == next[i].id && items[i].status == next[i].status,
+              items[i].id == next[i].id &&
+                  items[i].status == next[i].status &&
+                  items[i].isOverdue == next[i].isOverdue &&
+                  items[i].priority == next[i].priority &&
+                  items[i].title == next[i].title,
           ].every((same) => same);
       if (unchanged) return;
       items = next;

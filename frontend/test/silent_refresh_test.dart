@@ -124,4 +124,17 @@ void main() {
     expect(controller.items.length, 2);
     expect(controller.errorMessage, isNull);
   });
+
+  test('Returning to a cached filter shows it, then freshens it', () async {
+    final repository = _FakeRepository();
+    final controller = ComplaintListController(repository);
+    await controller.refresh();
+    await controller.setFilter(
+      controller.filter.copyWith(status: () => ComplaintStatus.resolved),
+    );
+    // Something new arrives while another filter is on screen.
+    repository.items = [_c('3'), _c('2'), _c('1')];
+    await controller.setFilter(controller.filter.copyWith(status: () => null));
+    expect(controller.items.map((i) => i.id), ['3', '2', '1']);
+  });
 }
