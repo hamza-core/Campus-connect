@@ -34,7 +34,20 @@ ssh -i ~/Desktop/Sg-campusConnect.pem ubuntu@<server-ip> 'sudo cat /etc/api.env'
 | API | ASP.NET Core 10, systemd service `api`, files in `/home/ubuntu/api`, settings in `/etc/api.env` |
 | Photos | `/home/ubuntu/uploads` on the server disk |
 
-Not readable from the server, so check them in the RDS console (RDS, then `campusconnectv1`, Configuration) and write them down: **instance class, storage size and type, engine version.** A `db.t3.micro` with 20 GiB is the usual free-tier choice.
+**Database settings** (read from the AWS console screenshots taken when the database was created):
+
+| Setting | Value |
+|---|---|
+| Template | Free tier |
+| Engine | SQL Server Express Edition (the version was not recorded; the current default is fine) |
+| Instance class | `db.t3.micro` (2 vCPU, 1 GiB RAM) |
+| Storage | 20 GiB |
+| Identifier | `campusconnectv1` |
+| Master user | `admin`, password self-managed. The password must not contain `/`, `'`, `"` or `@` |
+| Availability Zone | `eu-north-1a` |
+| Public access | No |
+| DB subnet group | `api-db-subnets` |
+| Security group | `db-sg` |
 
 ## 2. What keeps costing money while "turned off"
 
