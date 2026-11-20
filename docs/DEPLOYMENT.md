@@ -54,6 +54,21 @@ JWT_SECRET=<48 random bytes, base64>
 7. **Verify:** `curl http://<ip>/api/v1/health` → `{"status":"ok"}`; `curl http://<ip>/api/v1/meta/categories`; SignalR: `curl -X POST "http://<ip>/hubs/notifications/negotiate?negotiateVersion=1" -H "Authorization: Bearer <token>"` → 200 with `WebSockets` available (no token → 401).
 8. **Update later:** repeat 1–2, then `sudo systemctl restart api` (run `--migrate` first if the PR has a new migration; keep migrations backward-compatible).
 
+## C2. CI/CD pipelines (GitHub Actions)
+
+| Workflow | Runs on | What it does |
+|---|---|---|
+| `backend-ci.yml` (CI) | every push/PR touching `backend/` or `contract/` | restore (locked) → build → EF model check → all tests against SQL Server 2022 → publish artifact `backend-api` |
+| `backend-cd.yml` (CD) | after Backend CI succeeds on `main`, or manually | publish for linux-x64 → copy to the server → `backend/deploy/deploy.sh` (apply migrations, swap, restart, health check, **automatic rollback** if unhealthy) |
+| `frontend-apk.yml` (CI + CD) | every push/PR touching `frontend/` | `flutter analyze` → `flutter test` → release APK artifact `campusconnect-apk`; on `main` it also publishes the APK as the rolling GitHub Release **`latest`** |
+
+**Turning on automatic deploys** (one time, needs repo admin): Settings → Secrets and variables → Actions:
+
+- `EC2_HOST` (the server address), `EC2_USER` (`ubuntu`), `EC2_SSH_KEY` (a **dedicated deploy key**, not your personal key) — required.
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (`eu-north-1`), `SG_ID` — optional but recommended: the pipeline then opens port 22 for the runner's single IP and closes it again, so SSH never has to stay open to the world. Use an IAM user that may only authorize/revoke ingress on that one security group.
+
+Until the required secrets exist the CD job is skipped with a notice; it never turns the pipeline red. Run it by hand from the Actions tab (*Backend CD → Run workflow*) or locally: copy the build to `~/api-new` on the server and run `ssh <server> 'bash -s' < backend/deploy/deploy.sh`.
+
 ## D. The Android app (APK)
 
 - **Build:** GitHub Actions `frontend-apk.yml` runs on pushes to `fe/**` and PRs touching `frontend/`: `flutter analyze` → `flutter test` → `flutter build apk --release --dart-define=API_BASE_URL=http://13.53.165.254/api/v1` → artifact **`campusconnect-apk`** (`gh run download <run-id> -n campusconnect-apk`). Flutter 3.47.9, JDK 17, Android compileSdk 37. The workflow's `API_BASE_URL` env must be updated when the server address or scheme changes.

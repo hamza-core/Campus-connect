@@ -1,0 +1,78 @@
+name: Backend CD
+# Deploys the API to the EC2 server after Backend CI succeeds on main.
+# Needs repository secrets (Settings > Secrets and variables > Actions):
+#   EC2_HOST, EC2_USER, EC2_SSH_KEY            required to deploy
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+#   AWS_REGION, SG_ID                          optional: opens port 22 for this runner only, then closes it
+# Without the required secrets the job is skipped (it never fails the pipeline).
+on:
+  workflow_run:
+    workflows: ['Backend CI']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      SG_ID: ${{ secrets.SG_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
+    steps:
+      - name: Check deploy secrets
+        id: gate
+        run: |
+          if [ -z "$EC2_HOST" ] || [ -z "$EC2_SSH_KEY" ]; then
+            echo "::notice::Deploy skipped: EC2_HOST / EC2_SSH_KEY secrets are not set."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.go == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-dotnet@v4
+        if: steps.gate.outputs.go == 'true'
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish for linux-x64
+        if: steps.gate.outputs.go == 'true'
+        working-directory: backend
+        run: dotnet publish src/CampusConnect.Api -c Release -r linux-x64 --self-contained false -o "$RUNNER_TEMP/publish"
+      - name: Open SSH for this runner only (optional)
+        id: sg
+        if: steps.gate.outputs.go == 'true' && env.SG_ID != '' && env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          IP=$(curl -fsS https://checkip.amazonaws.com)
+          aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr "$IP/32"
+          echo "ip=$IP" >> "$GITHUB_OUTPUT"
+      - name: Deploy
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          USER_NAME="${EC2_USER:-ubuntu}"
+          mkdir -p ~/.ssh
+          install -m 600 /dev/null key.pem
+          printf '%s\n' "$EC2_SSH_KEY" > key.pem
+          ssh-keyscan -T 15 -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          SSH="ssh -i key.pem -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 $USER_NAME@$EC2_HOST"
+          $SSH 'rm -rf ~/api-new && mkdir -p ~/api-new'
+          scp -i key.pem -o StrictHostKeyChecking=accept-new -q -r "$RUNNER_TEMP/publish/." "$USER_NAME@$EC2_HOST:~/api-new/"
+          $SSH 'bash -s' < backend/deploy/deploy.sh
+      - name: Close SSH again
+        if: always() && steps.sg.outputs.ip != ''
+        run: aws ec2 revoke-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr "${{ steps.sg.outputs.ip }}/32"
+      - name: Remove key
+        if: always()
+        run: rm -f key.pem

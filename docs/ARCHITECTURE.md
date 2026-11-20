@@ -30,7 +30,7 @@ Baseline (owner decision, issue #1): **ASP.NET Core 10 · EF Core · SQL Server 
 | 8 | `rowVersion` optimistic concurrency on status change | Two admins can't overwrite each other |
 | 9 | Super admin read-only | Least privilege |
 | 10 | Admins seeded; password from `SEED_PASSWORD` | Public repo, no committed secrets |
-| 11 | No server-side image storage; photos stay on the device | No storage provider available (S3/Cloudinary dropped); `imageUrls` ignored |
+| 11 | Photos are uploaded to the API server's disk (`~/uploads`), scoped by role | S3 dropped to keep the setup simple; access = uploader or anyone allowed to see the attached complaint. Not backed up yet |
 | 12 | **Hybrid freshness**: SignalR for the owning student, 10 s polling for lists/dashboards | Push to admins needs a backend event (planned); polling is robust and cheap at this scale |
 | 13 | **Android system popups** via foreground service + local notifications | Delivers alerts while minimized without Firebase/FCM accounts; costs a persistent low-priority notification and OEM battery settings |
 | 14 | Forwarded headers trusted only from `TRUSTED_PROXIES` | Correct per-client rate limiting behind Nginx |
