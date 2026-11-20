@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/models/complaint_summary.dart';
-import 'complaint_section.dart';
 import 'complaint_tile.dart';
 
 /// Other complaints about the same kind of problem (same category and issue
-/// label) that the viewer may see. Hidden when there are none.
+/// label) that the viewer may see. Collapsed by default; hidden when none.
 final class RelatedComplaints extends StatelessWidget {
   const RelatedComplaints({
     super.key,
@@ -21,18 +20,29 @@ final class RelatedComplaints extends StatelessWidget {
     builder: (context, snapshot) {
       final items = snapshot.data;
       if (items == null || items.isEmpty) return const SizedBox.shrink();
-      return ComplaintSection(
-        title: 'Related complaints (${items.length})',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text('Same category and kind of problem.'),
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: const Icon(Icons.link_rounded),
+              title: Text(
+                'Related complaints (${items.length})',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text('Same category and kind of problem'),
+              childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              children: [
+                for (final item in items)
+                  ComplaintTile(item: item, onTap: () => onOpen(item)),
+              ],
             ),
-            for (final item in items)
-              ComplaintTile(item: item, onTap: () => onOpen(item)),
-          ],
+          ),
         ),
       );
     },

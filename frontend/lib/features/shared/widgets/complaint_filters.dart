@@ -12,6 +12,7 @@ final class ComplaintFilters extends StatelessWidget {
     required this.departments,
     this.showDepartment = true,
     this.showCategory = true,
+    this.iconOnly = false,
   });
   final ComplaintListController controller;
   final List<(String, String)> departments;
@@ -19,6 +20,9 @@ final class ComplaintFilters extends StatelessWidget {
 
   /// Only the super admin spans categories; a department admin's list is already one department.
   final bool showCategory;
+
+  /// Narrow screens: just the filter icon (placed beside the search box).
+  final bool iconOnly;
 
   int get _activeCount =>
       (showCategory && controller.filter.category != null ? 1 : 0) +
@@ -35,6 +39,23 @@ final class ComplaintFilters extends StatelessWidget {
         return _fields(compact: false);
       }
       final theme = Theme.of(context);
+      if (iconOnly) {
+        return Badge(
+          isLabelVisible: _activeCount > 0,
+          label: Text('$_activeCount'),
+          child: IconButton.outlined(
+            tooltip: 'Filters',
+            icon: const Icon(Icons.tune_rounded),
+            style: IconButton.styleFrom(
+              minimumSize: const Size(52, 52),
+              backgroundColor: _activeCount > 0
+                  ? theme.colorScheme.primary.withValues(alpha: .1)
+                  : null,
+            ),
+            onPressed: () => _openSheet(context),
+          ),
+        );
+      }
       return Align(
         alignment: Alignment.centerLeft,
         child: Badge(

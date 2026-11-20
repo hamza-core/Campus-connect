@@ -191,7 +191,16 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                             widget.id,
                           ),
                         ),
-                      if (complaint.timeline.any((entry) => entry.body != null))
+                      if (widget.canUpdate) ...[
+                        if (controller.actionError case final message?)
+                          ErrorView(message: message),
+                        DepartmentComplaintActions(
+                          controller: controller,
+                          remark: _remark,
+                        ),
+                      ],
+                      if (isStudent &&
+                          complaint.timeline.any((entry) => entry.body != null))
                         ComplaintSection(
                           title: 'Department remarks',
                           child: Column(
@@ -235,13 +244,6 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                           departmentName: complaint.summary.department.name,
                         ),
                       ),
-                      if (controller.actionError case final message?)
-                        ErrorView(message: message),
-                      if (widget.canUpdate)
-                        DepartmentComplaintActions(
-                          controller: controller,
-                          remark: _remark,
-                        ),
                     ],
                   ),
           ),

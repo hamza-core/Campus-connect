@@ -254,23 +254,41 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
                 ),
               ],
               const SizedBox(height: 12),
-              TextField(
-                controller: _search,
-                onChanged: controller.search,
-                decoration: const InputDecoration(
-                  hintText: 'Search complaints',
-                  prefixIcon: Icon(Icons.search),
-                ),
+              Builder(
+                builder: (context) {
+                  final narrow = MediaQuery.sizeOf(context).width < 600;
+                  final staff = widget.superAdmin || widget.department;
+                  final search = TextField(
+                    controller: _search,
+                    onChanged: controller.search,
+                    decoration: const InputDecoration(
+                      hintText: 'Search complaints',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  );
+                  final filters = ComplaintFilters(
+                    controller: controller,
+                    departments: _departments,
+                    showDepartment: widget.superAdmin,
+                    showCategory: widget.superAdmin,
+                    iconOnly: narrow,
+                  );
+                  if (keyboardOpen || !staff) return search;
+                  if (narrow) {
+                    return Row(
+                      children: [
+                        Expanded(child: search),
+                        const SizedBox(width: 8),
+                        filters,
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [search, const SizedBox(height: 8), filters],
+                  );
+                },
               ),
-              if (!keyboardOpen && (widget.superAdmin || widget.department))
-                const SizedBox(height: 8),
-              if (!keyboardOpen && (widget.superAdmin || widget.department))
-                ComplaintFilters(
-                  controller: controller,
-                  departments: _departments,
-                  showDepartment: widget.superAdmin,
-                  showCategory: widget.superAdmin,
-                ),
               const SizedBox(height: 8),
               if (!keyboardOpen)
                 ListenableBuilder(
