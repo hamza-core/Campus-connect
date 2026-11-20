@@ -112,19 +112,148 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     super.dispose();
   }
 
-  (Color, Color) _tint(String label) => switch (label) {
-    'Pending' => (const Color(0xFFFBF0C5), const Color(0xFFB45309)),
-    'In progress' => (const Color(0xFFDDE8FD), const Color(0xFF1D4ED8)),
-    'Resolved' => (const Color(0xFFDDF6E4), const Color(0xFF15803D)),
-    'Rejected' => (const Color(0xFFFDE0E0), const Color(0xFFB91C1C)),
-    'Overdue' => (const Color(0xFFFDE0E0), const Color(0xFFB42318)),
-    'Avg. resolution' => (const Color(0xFFE3ECE9), const Color(0xFF004741)),
-    'Avg. rating' => (const Color(0xFFFBF0C5), const Color(0xFF8A5A00)),
-    _ => (
-      Theme.of(context).colorScheme.primary,
-      Theme.of(context).colorScheme.onPrimary,
-    ),
-  };
+  int _insight = 0;
+
+  static const _amber = Color(0xFFB45309);
+  static const _blue = Color(0xFF1D4ED8);
+  static const _red = Color(0xFFB91C1C);
+
+  static String _hours(double? h) => h == null
+      ? '—'
+      : h < 48
+      ? '${h.toStringAsFixed(1)} h'
+      : '${(h / 24).toStringAsFixed(1)} d';
+
+  Widget _stats(BuildContext context, AdminDashboardController controller) =>
+      ListenableBuilder(
+        listenable: controller,
+        builder: (context, child) {
+          if (controller.state == ViewState.loading) return const ShimmerList();
+          if (controller.state == ViewState.error) {
+            return ErrorView(
+              message: controller.errorMessage!,
+              onRetry: controller.load,
+            );
+          }
+          final stats = controller.stats;
+          if (stats == null) return const SizedBox.shrink();
+          void open(String query) =>
+              context.go('${widget.complaintsPath}?$query');
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Needs attention',
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go(widget.complaintsPath),
+                    child: const Text('All complaints'),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _Kpi(
+                      label: 'Pending',
+                      value: '${stats.pending}',
+                      color: _amber,
+                      icon: Icons.schedule_rounded,
+                      onTap: () => open('status=PENDING'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _Kpi(
+                      label: 'In progress',
+                      value: '${stats.inProgress}',
+                      color: _blue,
+                      icon: Icons.play_arrow_rounded,
+                      onTap: () => open('status=IN_PROGRESS'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _Kpi(
+                      label: 'Overdue',
+                      value: '${stats.overdue}',
+                      color: _red,
+                      icon: Icons.warning_amber_rounded,
+                      onTap: () => open('overdue=true'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _Summary(
+                items: [
+                  ('Total', '${stats.total}'),
+                  ('Resolved', '${stats.resolved}'),
+                  ('Rejected', '${stats.rejected}'),
+                  ('Avg. resolution', _hours(stats.avgResolutionHours)),
+                  (
+                    'Avg. rating',
+                    stats.avgRating == null
+                        ? '—'
+                        : '${stats.avgRating!.toStringAsFixed(1)} / 5',
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      );
+
+  Widget _insights(BuildContext context) {
+    if (_chartsFailed && _byStatus == null) {
+      return ErrorView(
+        message: 'Could not load the charts.',
+        onRetry: _refresh,
+      );
+    }
+    if (_byStatus == null || _trend == null) return const ShimmerList();
+    final tabs = <(String, Widget)>[
+      ('Status', StatusDonutChart(stats: _byStatus!)),
+      ('Trend', TrendLineChart(points: _trend!)),
+      if (_recurring != null)
+        ('Issues', RecurringIssuesCard(issues: _recurring!)),
+      if (widget.showChart && _departments != null)
+        ('Departments', DepartmentComplaintChart(departments: _departments!)),
+    ];
+    final index = _insight.clamp(0, tabs.length - 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Insights',
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<int>(
+            showSelectedIcon: false,
+            segments: [
+              for (var i = 0; i < tabs.length; i++)
+                ButtonSegment(value: i, label: Text(tabs[i].$1)),
+            ],
+            selected: {index},
+            onSelectionChanged: (value) =>
+                setState(() => _insight = value.single),
+          ),
+        ),
+        const SizedBox(height: 12),
+        tabs[index].$2,
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,126 +291,13 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    onPressed: () => context.go(widget.complaintsPath),
-                    icon: const Icon(Icons.list_alt_outlined),
-                    label: const Text('View complaints'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListenableBuilder(
-                  listenable: controller,
-                  builder: (context, child) {
-                    if (controller.state == ViewState.loading) {
-                      return const ShimmerList();
-                    }
-                    if (controller.state == ViewState.error) {
-                      return ErrorView(
-                        message: controller.errorMessage!,
-                        onRetry: controller.load,
-                      );
-                    }
-                    final stats = controller.stats;
-                    if (stats == null) return const SizedBox.shrink();
-                    String hours(double? h) => h == null
-                        ? '—'
-                        : h < 48
-                        ? '${h.toStringAsFixed(1)} h'
-                        : '${(h / 24).toStringAsFixed(1)} d';
-                    final values = [
-                      ('Total complaints', '${stats.total}'),
-                      ('Pending', '${stats.pending}'),
-                      ('In progress', '${stats.inProgress}'),
-                      ('Resolved', '${stats.resolved}'),
-                      ('Rejected', '${stats.rejected}'),
-                      ('Overdue', '${stats.overdue}'),
-                      ('Avg. resolution', hours(stats.avgResolutionHours)),
-                      (
-                        'Avg. rating',
-                        stats.avgRating == null
-                            ? '—'
-                            : '${stats.avgRating!.toStringAsFixed(1)} / 5',
-                      ),
-                    ];
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 850
-                            ? 5
-                            : constraints.maxWidth >= 480
-                            ? 3
-                            : 2;
-                        return Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            for (final (label, shown) in values)
-                              SizedBox(
-                                width:
-                                    (constraints.maxWidth -
-                                        (columns - 1) * 10) /
-                                    columns,
-                                child: Card(
-                                  margin: EdgeInsets.zero,
-                                  color: _tint(label).$1,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          shown,
-                                          style: textTheme.headlineMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w800,
-                                                color: _tint(label).$2,
-                                              ),
-                                        ),
-                                        Text(
-                                          label,
-                                          style: TextStyle(
-                                            color: _tint(label).$2,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                if (_chartsFailed && _byStatus == null)
-                  ErrorView(
-                    message: 'Could not load the charts.',
-                    onRetry: _refresh,
-                  )
-                else if (_byStatus == null || _trend == null)
-                  const ShimmerList()
-                else ...[
-                  StatusDonutChart(stats: _byStatus!),
-                  const SizedBox(height: 16),
-                  TrendLineChart(points: _trend!),
-                  if (_recurring != null) ...[
-                    const SizedBox(height: 16),
-                    RecurringIssuesCard(issues: _recurring!),
-                  ],
-                  if (widget.showChart && _departments != null) ...[
-                    const SizedBox(height: 16),
-                    DepartmentComplaintChart(departments: _departments!),
-                  ],
-                ],
+                _stats(context, controller),
+                const SizedBox(height: 20),
+                _insights(context),
               ],
             ),
           ),
@@ -289,4 +305,105 @@ final class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       ),
     );
   }
+}
+
+/// One headline number that opens the matching, filtered complaint list.
+final class _Kpi extends StatelessWidget {
+  const _Kpi({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+    required this.onTap,
+  });
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '$label: $value. Opens the list.',
+    excludeSemantics: true,
+    child: Material(
+      color: Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFCFC9B8), width: 1.5),
+      ),
+      child: InkWell(
+        customBorder: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF5F6B68),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Quiet secondary numbers, so they do not compete with the headline ones.
+final class _Summary extends StatelessWidget {
+  const _Summary({required this.items});
+  final List<(String, String)> items;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      border: Border.all(color: const Color(0xFFCFC9B8), width: 1.5),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Wrap(
+        runSpacing: 12,
+        children: [
+          for (final (label, value) in items)
+            FractionallySizedBox(
+              widthFactor: .5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  Text(label, style: const TextStyle(color: Color(0xFF5F6B68))),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
