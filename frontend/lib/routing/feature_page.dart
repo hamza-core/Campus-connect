@@ -1,28 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-Page<Object?> featurePage(
-  GoRouterState state,
-  Widget child, {
-  bool studentMotion = false,
-}) => CustomTransitionPage<Object?>(
-  key: state.pageKey,
-  child: child,
-  transitionDuration: Duration(milliseconds: studentMotion ? 360 : 150),
-  reverseTransitionDuration: const Duration(milliseconds: 150),
-  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
-    final curve = animation.drive(CurveTween(curve: Curves.easeOutCubic));
-    return FadeTransition(
-      opacity: curve,
-      child: studentMotion
-          ? SlideTransition(
-              position: curve.drive(
-                Tween(begin: const Offset(0, .025), end: Offset.zero),
-              ),
-              child: child,
-            )
-          : child,
-    );
-  },
-);
+/// A tab destination (Home, Complaints, Profile, the admin dashboard and
+/// list). Tabs swap instantly, like any bottom navigation bar: a fade would
+/// leave the old screen visible underneath the new one while it blends in.
+Page<Object?> tabPage(GoRouterState state, Widget child) =>
+    NoTransitionPage<Object?>(key: state.pageKey, child: child);
+
+/// A page pushed on top of another (a complaint, the new-complaint form).
+/// Uses the platform transition, where the old and new pages move together
+/// instead of blending.
+Page<Object?> pushedPage(GoRouterState state, Widget child) =>
+    MaterialPage<Object?>(key: state.pageKey, child: child);
