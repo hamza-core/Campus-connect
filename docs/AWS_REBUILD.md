@@ -55,7 +55,7 @@ Not readable from the server, so check them in the RDS console (RDS, then `campu
    scp -i <key>.pem backend/deploy/bootstrap-ec2.sh ubuntu@<server-ip>:~/
    ssh -i <key>.pem ubuntu@<server-ip> 'bash bootstrap-ec2.sh'
    ```
-   It installs the .NET runtime and Nginx, writes the Nginx and systemd configuration, and creates a settings template at `/etc/api.env`. Then edit it: `ssh ... 'sudo nano /etc/api.env'` and replace every `<placeholder>` (database endpoint and password, a new JWT secret from `openssl rand -base64 48`, and the two AI keys).
+   It installs the .NET runtime and Nginx, writes the Nginx and systemd configuration, and creates a settings template at `/etc/api.env`. It is safe to run on a server that is already working: `bash bootstrap-ec2.sh --check` only reports what it would change, it never upgrades installed packages or restarts the API, and it only rewrites a file that differs (after saving a `.bak` copy). Run against the current live server it reports "nothing to change". Then edit the settings: `ssh ... 'sudo nano /etc/api.env'` and replace every `<placeholder>` (database endpoint and password, a new JWT secret from `openssl rand -base64 48`, and the two AI keys).
 6. **Put the API on the server.**
    - Build it: `cd backend && dotnet publish src/CampusConnect.Api -c Release -r linux-x64 --self-contained false -o publish` (afterwards run `git checkout -- src/CampusConnect.Api/packages.lock.json tests/CampusConnect.Tests/packages.lock.json`). Alternatively download the `backend-api` artifact from the latest *Backend CI* run on GitHub.
    - Upload and start it:
