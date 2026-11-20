@@ -66,6 +66,8 @@ final class _FakeRepository implements ComplaintRepository {
     String? comment,
   }) => throw UnimplementedError();
   @override
+  Future<List<ComplaintSummary>> related(String id) async => const [];
+  @override
   Future<String> exportCsv({
     ComplaintFilter filter = const ComplaintFilter(),
   }) => throw UnimplementedError();

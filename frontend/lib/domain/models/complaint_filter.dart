@@ -17,6 +17,7 @@ final class ComplaintFilter {
             ? null
             : Priority.fromApiValue(json['priority'] as String),
         overdueOnly: json['overdueOnly'] as bool? ?? false,
+        year: json['year'] as int?,
       );
 
   Map<String, Object?> toJson() => {
@@ -26,6 +27,7 @@ final class ComplaintFilter {
     'departmentId': departmentId,
     'priority': priority?.apiValue,
     'overdueOnly': overdueOnly,
+    'year': year,
   };
 
   ComplaintFilter copyWith({
@@ -35,6 +37,7 @@ final class ComplaintFilter {
     String? Function()? departmentId,
     Priority? Function()? priority,
     bool? overdueOnly,
+    int? Function()? year,
   }) => ComplaintFilter(
     search: search ?? this.search,
     category: category == null ? this.category : category(),
@@ -42,6 +45,7 @@ final class ComplaintFilter {
     departmentId: departmentId == null ? this.departmentId : departmentId(),
     priority: priority == null ? this.priority : priority(),
     overdueOnly: overdueOnly ?? this.overdueOnly,
+    year: year == null ? this.year : year(),
   );
 
   const ComplaintFilter({
@@ -51,6 +55,7 @@ final class ComplaintFilter {
     this.departmentId,
     this.priority,
     this.overdueOnly = false,
+    this.year,
   });
 
   final String search;
@@ -59,4 +64,7 @@ final class ComplaintFilter {
   final String? departmentId;
   final Priority? priority;
   final bool overdueOnly;
+
+  /// Only complaints created in this year.
+  final int? year;
 }

@@ -18,6 +18,16 @@ public static class ComplaintEndpoints
             return Results.Ok(new { data = rows.Select(c => Views.Complaint(c, u)), page, pageSize, total });
         });
         api.MapGet("/complaints/{id}", async (string id, ComplaintService s, CurrentUser u) => Results.Ok(new { data = Views.Complaint(await s.Load(id), await u.Get(), true) }));
+        // Other complaints in the caller's scope about the same kind of problem (same category and issue label).
+        api.MapGet("/complaints/{id}/related", async (string id, ComplaintService s, CurrentUser current) =>
+        {
+            var u = await current.Get(); var c = await s.Load(id);
+            if (string.IsNullOrWhiteSpace(c.SubIssue)) return Results.Ok(new { data = Array.Empty<object>(), total = 0 });
+            var q = ComplaintQuery.Scoped(s.Full.AsNoTracking(), u).Where(x => x.Id != c.Id && x.Category == c.Category && x.SubIssue == c.SubIssue);
+            var total = await q.CountAsync();
+            var rows = await q.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id).Take(10).ToListAsync();
+            return Results.Ok(new { data = rows.Select(x => Views.Complaint(x, u)), total });
+        });
         api.MapPatch("/complaints/{id}/status", async (string id, StatusRequest r, ComplaintService s) => Results.Ok(new { data = await s.ChangeStatus(id, r) })).RequireAuthorization(p => p.RequireRole(Roles.Admin));
         api.MapPost("/complaints/{id}/comments", async (string id, CommentRequest r, ComplaintService s) => Results.Json(new { data = await s.Comment(id, r) }, statusCode: 201)).RequireAuthorization(p => p.RequireRole(Roles.Admin));
         api.MapPost("/complaints/{id}/feedback", async (string id, FeedbackRequest r, ComplaintService s) => Results.Json(new { data = await s.Feedback(id, r) }, statusCode: 201)).RequireAuthorization(p => p.RequireRole(Roles.Student));

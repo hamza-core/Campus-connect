@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../domain/enums/complaint_status.dart';
+import '../../../domain/enums/user_role.dart';
 import '../../../domain/models/timeline_entry.dart';
 
 /// Vertical timeline: dot + connecting line, bold step, date and detail text.
@@ -22,11 +25,43 @@ final class ComplaintTimeline extends StatelessWidget {
         _ => 'Submitted',
       };
 
+  static Color _color(TimelineEntry entry, Color fallback) =>
+      switch (entry.toStatus) {
+        ComplaintStatus.pending => const Color(0xFFB45309),
+        ComplaintStatus.inProgress => const Color(0xFF1D4ED8),
+        ComplaintStatus.resolved => const Color(0xFF15803D),
+        ComplaintStatus.rejected => const Color(0xFFB91C1C),
+        null =>
+          entry.type == 'REMARK' || entry.type == 'STUDENT_REPLY'
+              ? const Color(0xFF5F6B68)
+              : fallback,
+      };
+
+  static IconData _icon(TimelineEntry entry) => switch (entry.toStatus) {
+    ComplaintStatus.resolved => Icons.check_rounded,
+    ComplaintStatus.rejected => Icons.close_rounded,
+    ComplaintStatus.inProgress => Icons.play_arrow_rounded,
+    ComplaintStatus.pending => Icons.schedule_rounded,
+    null => Icons.chat_bubble_outline_rounded,
+  };
+
+  static String? _by(TimelineEntry entry) {
+    final name = entry.actorName;
+    if (name == null) return null;
+    final role = switch (entry.actorRole) {
+      UserRole.student => 'Student',
+      UserRole.departmentAdmin => 'Department admin',
+      UserRole.superAdmin => 'Super admin',
+      null => null,
+    };
+    return role == null ? name : '$name · $role';
+  }
+
   String? _detail(TimelineEntry entry) {
     final body = entry.body?.trim();
     if (body != null && body.isNotEmpty) return body;
     if (entry.type == 'CREATED') return 'Sent to $departmentName';
-    return entry.actorName;
+    return null;
   }
 
   @override
@@ -48,12 +83,14 @@ final class ComplaintTimeline extends StatelessWidget {
                         height: 26,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: theme.colorScheme.primary,
+                          color: _color(entries[i], theme.colorScheme.primary),
                         ),
                         child: Icon(
-                          Icons.check,
+                          entries[i].type == 'CREATED'
+                              ? Icons.check
+                              : _icon(entries[i]),
                           size: 16,
-                          color: theme.colorScheme.onPrimary,
+                          color: Colors.white,
                         ),
                       ),
                       if (i != entries.length - 1)
@@ -85,13 +122,21 @@ final class ComplaintTimeline extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              DateFormatter.date(entries[i].createdAt),
+                              '${DateFormatter.date(entries[i].createdAt)}, ${DateFormat.jm().format(entries[i].createdAt.toLocal())}',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: AppColors.secondaryText,
                               ),
                             ),
                           ],
                         ),
+                        if (_by(entries[i]) case final by?)
+                          Text(
+                            by,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
                         if (_detail(entries[i]) case final detail?)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),

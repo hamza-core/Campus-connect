@@ -226,6 +226,12 @@ Content-Type: application/json
 GET {{baseUrl}}/meta/frequent-issues?category=LAB_IT
 Authorization: Bearer {{studentLogin.response.body.$.token}}
 
+### Related complaints — 200; same category and issue label, within the caller's scope
+# demo-001 stands for any complaint id
+# @name relatedComplaints
+GET {{baseUrl}}/complaints/demo-001/related
+Authorization: Bearer {{superLogin.response.body.$.token}}
+
 ### System summary — 200; super administrator
 # @name systemSummary
 GET {{baseUrl}}/analytics/summary

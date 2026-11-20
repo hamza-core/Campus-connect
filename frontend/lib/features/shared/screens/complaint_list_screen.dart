@@ -24,12 +24,18 @@ final class ComplaintListScreen extends StatefulWidget {
     this.student = false,
     this.department = false,
     this.superAdmin = false,
+    this.initialStatus,
+    this.initialOverdue = false,
   });
   final String basePath;
   final String title;
   final bool student;
   final bool department;
   final bool superAdmin;
+
+  /// Opened from a dashboard card: start with this status / overdue filter.
+  final ComplaintStatus? initialStatus;
+  final bool initialOverdue;
 
   @override
   State<ComplaintListScreen> createState() => _ComplaintListScreenState();
@@ -71,7 +77,23 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
       dependencies.complaints,
       department: widget.department,
     );
-    _controller!.refresh();
+    final status = widget.initialStatus;
+    if (status != null || widget.initialOverdue) {
+      if (widget.department &&
+          (status == ComplaintStatus.resolved ||
+              status == ComplaintStatus.rejected)) {
+        _history = true;
+        _controller!.setDepartmentHistory(true);
+      }
+      _controller!.setFilter(
+        _controller!.filter.copyWith(
+          status: () => status,
+          overdueOnly: widget.initialOverdue,
+        ),
+      );
+    } else {
+      _controller!.refresh();
+    }
     if (widget.student) {
       // A live notification means one of my complaints just changed.
       _live = dependencies.notifications..addListener(_checkForUpdates);
@@ -254,22 +276,41 @@ final class _ComplaintListScreenState extends State<ComplaintListScreen>
                 ),
               ],
               const SizedBox(height: 12),
-              TextField(
-                controller: _search,
-                onChanged: controller.search,
-                decoration: const InputDecoration(
-                  hintText: 'Search complaints',
-                  prefixIcon: Icon(Icons.search),
-                ),
+              Builder(
+                builder: (context) {
+                  final narrow = MediaQuery.sizeOf(context).width < 600;
+                  final staff = widget.superAdmin || widget.department;
+                  final search = TextField(
+                    controller: _search,
+                    onChanged: controller.search,
+                    decoration: const InputDecoration(
+                      hintText: 'Search complaints',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  );
+                  final filters = ComplaintFilters(
+                    controller: controller,
+                    departments: _departments,
+                    showDepartment: widget.superAdmin,
+                    showCategory: widget.superAdmin,
+                    iconOnly: narrow,
+                  );
+                  if (keyboardOpen || !staff) return search;
+                  if (narrow) {
+                    return Row(
+                      children: [
+                        Expanded(child: search),
+                        const SizedBox(width: 8),
+                        filters,
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [search, const SizedBox(height: 8), filters],
+                  );
+                },
               ),
-              if (!keyboardOpen && (widget.superAdmin || widget.department))
-                const SizedBox(height: 8),
-              if (!keyboardOpen && (widget.superAdmin || widget.department))
-                ComplaintFilters(
-                  controller: controller,
-                  departments: _departments,
-                  showDepartment: widget.superAdmin,
-                ),
               const SizedBox(height: 8),
               if (!keyboardOpen)
                 ListenableBuilder(

@@ -112,6 +112,26 @@ public class ChatEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Staff_get_matching_complaints_and_todays_counts()
+    {
+        var model = new FakeModel();
+        using var app = With(model);
+        using var student = await Student(app, factory);
+        var title = "Broken class chairs " + Guid.NewGuid().ToString("N")[..6];
+        var create = await student.PostAsJsonAsync("/api/v1/complaints", new { category = "ACADEMIC", title, description = "The chairs in the classroom are broken and unsafe.", subIssue = "Classroom chairs" });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+
+        using var admin = app.CreateClient();
+        var login = await admin.PostAsJsonAsync("/api/v1/auth/login", new { email = "academic@campusconnect.edu", password = factory.SeedPassword });
+        admin.DefaultRequestHeaders.Authorization = new("Bearer", (await login.Content.ReadFromJsonAsync<JsonObject>())!["token"]!.GetValue<string>());
+        var response = await admin.PostAsJsonAsync("/api/v1/chat", new { message = "How many complaints did I get today regarding class chairs?" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(title, model.System);
+        Assert.Contains("received today", model.System);
+        Assert.Contains("Classroom chairs", model.System);
+    }
+
+    [Fact]
     public async Task Rejects_empty_and_oversized_messages()
     {
         using var app = With(new UnavailableChatModel());

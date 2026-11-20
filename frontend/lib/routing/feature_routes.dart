@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../domain/enums/complaint_status.dart';
+
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/department_admin/screens/admin_dashboard_screen.dart';
 import '../features/department_admin/widgets/admin_shell.dart';
@@ -101,10 +103,18 @@ ShellRoute _adminRoutes(
       _feature(
         complaintsPath,
         (state) => ComplaintListScreen(
+          key: ValueKey(state.uri.toString()),
           basePath: complaintsPath,
           title: superAdmin ? 'All complaints' : 'Department complaints',
           department: !superAdmin,
           superAdmin: superAdmin,
+          initialStatus: ComplaintStatus.values
+              .where(
+                (value) =>
+                    value.apiValue == state.uri.queryParameters['status'],
+              )
+              .firstOrNull,
+          initialOverdue: state.uri.queryParameters['overdue'] == 'true',
         ),
       ),
       _feature(
