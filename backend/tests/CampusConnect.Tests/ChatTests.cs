@@ -26,6 +26,8 @@ public class KnowledgeIndexTests
     [InlineData("Where are my photos stored", "Photos")]
     [InlineData("internet is not working in the lab", "Labs")]
     [InlineData("can I rate a resolved complaint", "Ratings")]
+    [InlineData("How do I submit a complaint?", "How to submit a complaint")]
+    [InlineData("where are my photos stored", "Photos")]
     public void Retrieves_the_relevant_section(string question, string expectedTitlePart)
     {
         var hits = Index().Search(question);

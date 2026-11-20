@@ -17,7 +17,7 @@ public static class VisionEndpoints
             var baseUrl = config["VISION_BASE_URL"] is { Length: > 0 } u ? u : "https://generativelanguage.googleapis.com/v1beta/openai";
             var model = config["VISION_MODEL"] is { Length: > 0 } m ? m : "gemini-flash-latest";
             services.AddSingleton<Vision.IVisionModel>(_ => new Vision.OpenAiCompatibleVisionModel(
-                new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(45) }, key, model));
+                new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(45) }, key, model, config["VISION_REASONING_EFFORT"]));
         }
         services.AddScoped<Vision.IssueAnalyzer>();
         return services;

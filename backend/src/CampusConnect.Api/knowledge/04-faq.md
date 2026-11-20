@@ -16,7 +16,7 @@ Departments should respond within the deadline for the priority you chose: 24 ho
 The department writes the reason in its reply on the complaint. If you disagree or the problem continues, submit a new complaint with more detail and mention the earlier ticket number.
 
 ## Can I attach photos?
-Yes, up to 3 photos of up to 5 MB each. They stay on your phone and are not visible to staff, so also describe the problem in the text.
+Yes, up to 3 photos of up to 5 MB each. They are uploaded and attached to your complaint. Also describe the problem in the text, and the AI can suggest the issue from your photo.
 
 ## I did not get a notification.
 Check that notifications are allowed for CampusConnect in your phone settings and that battery saver is not restricting the app. The status is always visible in the Complaints list even without a notification.
