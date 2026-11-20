@@ -20,16 +20,17 @@ public class ChatService(KnowledgeIndex index, IChatModel model, AppDb db, Curre
         var turns = Clean(history);
 
         var query = string.Join(" ", turns.Where(t => t.Role == "user").TakeLast(2).Select(t => t.Text)) + " " + message;
-        var hits = index.Search(query);
+        var isStudent = user.Role == Roles.Student;
+        var hits = index.Search(query, 4, includeStaff: !isStudent);
         var sources = hits.Select(h => new ChatSource(h.Chunk.Title, Snippet(h.Chunk.Text))).ToList();
-        var mine = user.Role == Roles.Student ? await MyComplaints(user, ct) : "";
+        var mine = isStudent ? await MyComplaints(user, ct) : await StaffSummary(user, ct);
 
         if (hits.Count == 0 && mine.Length == 0) return new ChatAnswer(NoAnswer, [], "retrieval");
         if (model.Available)
         {
             try
             {
-                var text = await model.Complete(SystemPrompt(hits, mine), [.. turns, new ChatTurn("user", message)], ct);
+                var text = await model.Complete(SystemPrompt(hits, mine, user.Role), [.. turns, new ChatTurn("user", message)], ct);
                 return new ChatAnswer(text, sources, "ai");
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
@@ -63,10 +64,21 @@ public class ChatService(KnowledgeIndex index, IChatModel model, AppDb db, Curre
         return string.Join("\n", rows.Select(c => $"- {c.Ticket}: \"{c.Title}\" | category {c.Category} | status {c.Status} | priority {c.Priority} | submitted {c.CreatedAt:yyyy-MM-dd} | due {c.DueAt:yyyy-MM-dd}"));
     }
 
+    private async Task<string> StaffSummary(User user, CancellationToken ct)
+    {
+        var rows = await Scope.Apply(db.Complaints.AsNoTracking(), user)
+            .GroupBy(c => c.Status).Select(g => new { Status = g.Key, Count = g.Count() }).ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        var overdue = await Scope.Apply(db.Complaints.AsNoTracking(), user)
+            .CountAsync(c => (c.Status == "PENDING" || c.Status == "IN_PROGRESS") && c.DueAt < now, ct);
+        var scope = user.Role == Roles.Super ? "all departments" : "your department";
+        return $"Counts for {scope}: " + string.Join(", ", rows.Select(r => $"{r.Status} {r.Count}")) + $", overdue {overdue}.";
+    }
+
     private static string Snippet(string text) => text.Length <= 220 ? text : text[..220].TrimEnd() + "…";
 
-    private static string SystemPrompt(IReadOnlyList<ScoredChunk> hits, string mine) => $"""
-        You are the CampusConnect assistant inside a university complaint and feedback app. You help students understand how the app works and where their own complaints stand.
+    private static string SystemPrompt(IReadOnlyList<ScoredChunk> hits, string mine, string role) => $"""
+        You are the CampusConnect assistant inside a university complaint and feedback app. The person you are talking to is a {(role == Roles.Student ? "student" : role == Roles.Admin ? "department administrator" : "super administrator")}. {(role == Roles.Student ? "Help them understand how the app works and where their own complaints stand. Do not explain staff or administrator procedures, dashboards or internal tools; say those are for staff." : "Help them understand how the app works and how to do their staff work; the figures below are only for their own scope.")}
 
         Rules:
         - Answer only from the <knowledge> and <my_complaints> blocks below. If the answer is not there, say you do not know and suggest submitting a complaint to the right department. Never invent university policies, phone numbers, fees, opening hours or staff names.

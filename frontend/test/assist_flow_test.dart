@@ -16,7 +16,13 @@ final class _Assist implements AssistRepository {
 
   @override
   Future<UploadedPhoto> uploadPhoto(Uint8List bytes) async =>
-      const UploadedPhoto(id: 'abcdef0123456789abcdef0123456789', url: '/api/v1/uploads/x');
+      const UploadedPhoto(
+        id: 'abcdef0123456789abcdef0123456789',
+        url: '/api/v1/uploads/x',
+      );
+
+  @override
+  Future<Uint8List> downloadPhoto(String url) async => Uint8List(0);
 
   @override
   Future<IssueSuggestion> analyze(String imageId, String? description) async =>

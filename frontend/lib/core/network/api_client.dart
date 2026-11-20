@@ -61,6 +61,40 @@ final class ApiClient {
     throw _errorFor(status, payload);
   }
 
+  /// Authenticated download of a binary API resource, e.g. `/api/v1/uploads/<id>`.
+  Future<List<int>> download(String apiPath) async {
+    final prefix = _baseUrl.path.endsWith('/')
+        ? _baseUrl.path
+        : '${_baseUrl.path}/';
+    if (!apiPath.startsWith(prefix) || apiPath.contains('..')) {
+      throw const ValidationException('Unsupported photo address.');
+    }
+    final token = _tokens.accessToken;
+    final request = http.Request(
+      'GET',
+      _baseUrl.resolve(apiPath.substring(prefix.length)),
+    )..followRedirects = false;
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    final http.Response response;
+    try {
+      response = await _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(timeout);
+    } on http.ClientException {
+      throw const NetworkException();
+    } on TimeoutException {
+      throw const NetworkException('The request timed out. Try again.');
+    }
+    if (response.statusCode == 401 && token != null) {
+      _tokens.clearIfCurrent(token);
+    }
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.bodyBytes;
+    }
+    throw _errorFor(response.statusCode, _decode(response.bodyBytes));
+  }
+
   /// Multipart upload of one file as form field `file`.
   Future<Map<String, Object?>> upload(
     String endpoint,

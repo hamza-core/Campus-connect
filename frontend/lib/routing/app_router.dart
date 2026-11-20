@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/assistant/screens/assistant_screen.dart';
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/auth/screens/auth_screen.dart';
 import '../features/auth/screens/splash_screen.dart';
@@ -40,6 +41,10 @@ final class AppRouter {
       GoRoute(
         path: '/access-denied',
         builder: (context, state) => const AccessDeniedScreen(),
+      ),
+      GoRoute(
+        path: '/assistant',
+        builder: (context, state) => const AssistantScreen(),
       ),
       ...featureRoutes,
     ],

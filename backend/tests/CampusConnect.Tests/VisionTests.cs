@@ -109,6 +109,41 @@ public class VisionEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Photo_access_follows_complaint_scope()
+    {
+        using var app = With(new FakeVision());
+        using var student = await Student(app);
+        var up = await student.PostAsync("/api/v1/uploads", Form(Png));
+        var url = (await up.Content.ReadFromJsonAsync<JsonObject>())!["data"]!["url"]!.GetValue<string>();
+        var create = await student.PostAsJsonAsync("/api/v1/complaints", new
+        {
+            category = "LAB_IT", title = "Projector photo access", description = "The projector in lab 3 shows no signal.", imageUrls = new[] { url }
+        });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+
+        using var labAdmin = await Login(app, "labit@campusconnect.edu");
+        Assert.Equal(HttpStatusCode.OK, (await labAdmin.GetAsync(url)).StatusCode);
+        using var libraryAdmin = await Login(app, "library@campusconnect.edu");
+        Assert.Equal(HttpStatusCode.Forbidden, (await libraryAdmin.GetAsync(url)).StatusCode);
+        using var otherStudent = await Login(app, "student2@campusconnect.edu");
+        Assert.Equal(HttpStatusCode.Forbidden, (await otherStudent.GetAsync(url)).StatusCode);
+        // Someone else's upload cannot be attached to my complaint.
+        var steal = await otherStudent.PostAsJsonAsync("/api/v1/complaints", new
+        {
+            category = "LAB_IT", title = "Stolen photo attempt", description = "Trying to reuse another upload.", imageUrls = new[] { url }
+        });
+        Assert.Equal((HttpStatusCode)422, steal.StatusCode);
+    }
+
+    private async Task<HttpClient> Login(WebApplicationFactory<Program> app, string email)
+    {
+        var client = app.CreateClient();
+        var login = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = factory.SeedPassword });
+        client.DefaultRequestHeaders.Authorization = new("Bearer", (await login.Content.ReadFromJsonAsync<JsonObject>())!["token"]!.GetValue<string>());
+        return client;
+    }
+
+    [Fact]
     public async Task Rejects_non_images_and_unknown_photo_references()
     {
         using var app = With(new FakeVision());

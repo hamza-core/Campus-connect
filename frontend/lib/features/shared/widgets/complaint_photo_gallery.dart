@@ -14,14 +14,14 @@ final class ComplaintPhotoGallery extends StatelessWidget {
     future: photos,
     builder: (context, snapshot) {
       if (snapshot.hasError) {
-        return const ErrorView(message: 'Saved photos could not be opened.');
+        return const ErrorView(message: 'Photos could not be opened.');
       }
       final images = snapshot.data;
       if (images == null || images.isEmpty) {
         return const SizedBox.shrink();
       }
       return ComplaintSection(
-        title: 'Photos saved on this device',
+        title: 'Photos',
         child: Wrap(
           spacing: 8,
           runSpacing: 8,

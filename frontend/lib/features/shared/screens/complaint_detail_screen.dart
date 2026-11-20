@@ -174,7 +174,14 @@ final class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                         title: 'Description',
                         child: SelectableText(complaint.description),
                       ),
-                      if (widget.photoOwnerId case final owner?)
+                      if (complaint.imageUrls.isNotEmpty)
+                        ComplaintPhotoGallery(
+                          photos: _photos ??= Future.wait([
+                            for (final url in complaint.imageUrls)
+                              AppScope.of(context).assist.downloadPhoto(url),
+                          ]),
+                        )
+                      else if (widget.photoOwnerId case final owner?)
                         ComplaintPhotoGallery(
                           photos: _photos ??= ComplaintPhotoStore.instance.read(
                             owner,

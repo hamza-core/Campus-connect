@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace CampusConnect.Api.Chat;
 
-public record KnowledgeChunk(string Title, string Text);
+public record KnowledgeChunk(string Title, string Text, bool StaffOnly = false);
 public record ScoredChunk(KnowledgeChunk Chunk, double Score);
 
 /// <summary>In-memory BM25 index over the Markdown files in <c>knowledge/</c>. No database, no external service.</summary>
@@ -35,7 +35,8 @@ public sealed partial class KnowledgeIndex
         foreach (var file in Directory.GetFiles(directory, "*.md").OrderBy(f => f, StringComparer.Ordinal))
         {
             if (Path.GetFileName(file).Equals("README.md", StringComparison.OrdinalIgnoreCase)) continue;
-            all.AddRange(Chunk(File.ReadAllText(file)));
+            var staffOnly = Path.GetFileName(file).StartsWith("staff-", StringComparison.OrdinalIgnoreCase);
+            all.AddRange(Chunk(File.ReadAllText(file)).Select(c => c with { StaffOnly = staffOnly }));
         }
         return new KnowledgeIndex(all);
     }
@@ -75,13 +76,14 @@ public sealed partial class KnowledgeIndex
         return result;
     }
 
-    public IReadOnlyList<ScoredChunk> Search(string query, int top = 4)
+    public IReadOnlyList<ScoredChunk> Search(string query, int top = 4, bool includeStaff = true)
     {
         var queryTerms = Tokenize(query).Distinct().ToList();
         if (queryTerms.Count == 0 || chunks.Count == 0) return [];
         var scored = new List<ScoredChunk>();
         for (var i = 0; i < chunks.Count; i++)
         {
+            if (chunks[i].StaffOnly && !includeStaff) continue;
             double score = 0;
             foreach (var term in queryTerms)
             {

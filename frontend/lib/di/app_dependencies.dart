@@ -6,6 +6,9 @@ import '../core/network/token_store.dart';
 import '../core/storage/secure_token_storage.dart';
 import '../data/repositories/assist_repository.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/repositories/chat_repository.dart';
+import '../data/repositories/mock/mock_chat_repository.dart';
+import '../data/repositories/remote/remote_chat_repository.dart';
 import '../data/repositories/mock/mock_assist_repository.dart';
 import '../data/repositories/remote/remote_assist_repository.dart';
 import '../data/repositories/complaint_repository.dart';
@@ -33,6 +36,7 @@ final class AppDependencies {
         complaints: complaints,
         dashboard: MockDashboardRepository(auth, complaints),
         assist: const MockAssistRepository(),
+        chat: const MockChatRepository(),
         notifications: NotificationController(
           const MockNotificationRepository(),
           const NoopNotificationRealtime(),
@@ -54,6 +58,7 @@ final class AppDependencies {
         complaints: RemoteComplaintRepository(api),
         dashboard: RemoteDashboardRepository(api),
         assist: RemoteAssistRepository(api),
+        chat: RemoteChatRepository(api),
         notifications: NotificationController(
           RemoteNotificationRepository(api),
           SignalRNotificationRealtime(
@@ -80,6 +85,7 @@ final class AppDependencies {
     required this.complaints,
     required this.dashboard,
     required this.assist,
+    required this.chat,
     required this.notifications,
     this.tokens,
   });
@@ -89,6 +95,7 @@ final class AppDependencies {
   final ComplaintRepository complaints;
   final DashboardRepository dashboard;
   final AssistRepository assist;
+  final ChatRepository chat;
   final NotificationController notifications;
   final TokenStore? tokens;
 }
