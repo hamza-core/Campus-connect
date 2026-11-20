@@ -32,7 +32,7 @@ public class ChatService(KnowledgeIndex index, IChatModel model, AppDb db, Curre
                 var text = await model.Complete(SystemPrompt(hits, mine), [.. turns, new ChatTurn("user", message)], ct);
                 return new ChatAnswer(text, sources, "ai");
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 log.LogWarning(ex, "Chat model call failed; falling back to retrieval-only answer.");
             }

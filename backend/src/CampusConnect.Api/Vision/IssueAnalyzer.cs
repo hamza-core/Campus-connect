@@ -38,7 +38,7 @@ public class IssueAnalyzer(AppDb db, IVisionModel model, UploadStore store, ILog
             """;
         string reply;
         try { reply = await model.Analyze(System, text, await File.ReadAllBytesAsync(file.Path, ct), file.Mime, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             log.LogWarning(ex, "Vision model call failed.");
             throw new ApiError(503, "AI_UNAVAILABLE", "Photo analysis is unavailable right now. Choose the issue yourself.");

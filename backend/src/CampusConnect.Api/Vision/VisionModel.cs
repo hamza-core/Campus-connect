@@ -18,18 +18,18 @@ public sealed class UnavailableVisionModel : IVisionModel
 }
 
 /// <summary>OpenAI-compatible vision call (Google Gemini free tier by default). Config: VISION_API_KEY, VISION_BASE_URL, VISION_MODEL.</summary>
-public sealed class OpenAiCompatibleVisionModel(HttpClient http, string apiKey, string model) : IVisionModel
+public sealed class OpenAiCompatibleVisionModel(HttpClient http, string apiKey, string model, string? reasoningEffort = null) : IVisionModel
 {
     public bool Available => true;
 
     public async Task<string> Analyze(string system, string userText, byte[] image, string mime, CancellationToken ct)
     {
         var dataUri = $"data:{mime};base64,{Convert.ToBase64String(image)}";
-        var body = new
+        var body = new Dictionary<string, object>
         {
-            model,
-            temperature = 0.1,
-            messages = new object[]
+            ["model"] = model,
+            ["temperature"] = 0.1,
+            ["messages"] = new object[]
             {
                 new { role = "system", content = system },
                 new { role = "user", content = new object[]
@@ -39,6 +39,7 @@ public sealed class OpenAiCompatibleVisionModel(HttpClient http, string apiKey, 
                 } }
             }
         };
+        if (!string.IsNullOrWhiteSpace(reasoningEffort)) body["reasoning_effort"] = reasoningEffort;
         using var response = await Chat.HttpRetry.Send(http, () =>
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };

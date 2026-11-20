@@ -13,12 +13,15 @@ Administrator accounts are created by the university; they cannot be registered 
 1. Tap the **+** button in the bottom navigation.
 2. Choose the category (Cafeteria, Library, Labs & IT, Teaching & Academic).
 3. Optionally pick the kind of problem, then write a short **title** (5 to 120 characters) and a **description** (at least 10 characters).
-4. Optionally add a location, choose a priority (Low, Medium, High), attach up to 3 photos, and choose to hide your name from department staff.
+4. Optionally add a location, choose a priority (Low, Medium, High), attach up to 3 photos (the AI then suggests the issue), and choose to hide your name from department staff.
 5. Tap **Submit complaint**. You get a ticket number such as CC-2026-0042.
 You do not choose the department: CampusConnect sends the complaint to the right one from the category.
 
 ## Photos
-Photos you attach are stored only on your own phone. They are not uploaded to the server, so department staff cannot see them. Describe the problem in words so staff can act on it.
+You can attach up to 3 photos (JPEG, PNG or WebP, up to 5 MB each). Photos are uploaded to the CampusConnect server and attached to your complaint. Still describe the problem in words so staff can act on it quickly.
+
+## AI photo suggestion
+When you add a photo, an AI looks at it and suggests the kind of problem, a short issue label, and a priority. You see an "AI suggests" card and choose whether to use it; you can always pick the issue yourself. The list of problem types comes from the issues students reported most often in that category, so it improves over time. If the AI is busy or unavailable, choose the issue manually.
 
 ## Following a complaint
 Open **Complaints** in the bottom navigation to see your complaints, filter by status, and search. Open a complaint to see its details, the department's replies, and a timeline of every step. The lists refresh by themselves every few seconds.

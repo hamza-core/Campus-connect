@@ -47,7 +47,7 @@ public sealed class AnthropicChatModel(string apiKey, string model, int maxToken
 /// Any OpenAI-compatible chat API (Groq, Google Gemini, OpenRouter, ...). Free-tier friendly.
 /// Config: <c>LLM_API_KEY</c>, <c>LLM_BASE_URL</c> (default Groq), <c>LLM_MODEL</c>.
 /// </summary>
-public sealed class OpenAiCompatibleChatModel(HttpClient http, string apiKey, string model, int maxTokens) : IChatModel
+public sealed class OpenAiCompatibleChatModel(HttpClient http, string apiKey, string model, int maxTokens, string? reasoningEffort = null) : IChatModel
 {
     public bool Available => true;
 
@@ -55,7 +55,8 @@ public sealed class OpenAiCompatibleChatModel(HttpClient http, string apiKey, st
     {
         var messages = new List<object> { new { role = "system", content = system } };
         messages.AddRange(turns.Select(t => (object)new { role = t.Role, content = t.Text }));
-        var payload = new { model, messages, max_tokens = maxTokens, temperature = 0.2 };
+        var payload = new Dictionary<string, object> { ["model"] = model, ["messages"] = messages, ["max_tokens"] = maxTokens, ["temperature"] = 0.2 };
+        if (!string.IsNullOrWhiteSpace(reasoningEffort)) payload["reasoning_effort"] = reasoningEffort;
         using var response = await HttpRetry.Send(http, () =>
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = System.Net.Http.Json.JsonContent.Create(payload) };

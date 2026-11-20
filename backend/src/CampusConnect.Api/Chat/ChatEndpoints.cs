@@ -13,7 +13,7 @@ public static class ChatEndpoints
             var baseUrl = config["LLM_BASE_URL"] is { Length: > 0 } u ? u : "https://api.groq.com/openai/v1";
             var llmModel = config["LLM_MODEL"] is { Length: > 0 } lm ? lm : "llama-3.1-8b-instant";
             services.AddSingleton<IChatModel>(_ => new OpenAiCompatibleChatModel(
-                new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(30) }, llmKey, llmModel, maxTokens));
+                new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(60) }, llmKey, llmModel, maxTokens, config["LLM_REASONING_EFFORT"]));
         }
         else if (!string.IsNullOrWhiteSpace(anthropicKey))
             services.AddSingleton<IChatModel>(_ => new AnthropicChatModel(anthropicKey, config["ANTHROPIC_MODEL"] is { Length: > 0 } m ? m : "claude-haiku-5-5", maxTokens));

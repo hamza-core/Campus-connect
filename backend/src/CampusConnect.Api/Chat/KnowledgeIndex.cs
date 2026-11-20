@@ -8,7 +8,7 @@ public record ScoredChunk(KnowledgeChunk Chunk, double Score);
 /// <summary>In-memory BM25 index over the Markdown files in <c>knowledge/</c>. No database, no external service.</summary>
 public sealed partial class KnowledgeIndex
 {
-    private const double K1 = 1.5, B = 0.75;
+    private const double K1 = 1.5, B = 0.5;
     private readonly List<KnowledgeChunk> chunks;
     private readonly List<Dictionary<string, int>> termCounts;
     private readonly List<int> lengths;
@@ -18,7 +18,7 @@ public sealed partial class KnowledgeIndex
     public KnowledgeIndex(IEnumerable<KnowledgeChunk> source)
     {
         chunks = source.ToList();
-        termCounts = chunks.Select(c => Count(Tokenize(c.Title + " " + c.Text))).ToList();
+        termCounts = chunks.Select(c => Count(Tokenize(c.Title + " " + c.Title + " " + c.Title + " " + c.Text))).ToList();
         lengths = termCounts.Select(t => t.Values.Sum()).ToList();
         averageLength = lengths.Count == 0 ? 0 : lengths.Average();
         foreach (var terms in termCounts)
