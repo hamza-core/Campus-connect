@@ -18,6 +18,7 @@ final class Complaint {
         ? ComplaintFeedback.fromJson(json['feedback'] as Map<String, Object?>)
         : null,
     authorName: (json['author'] as Map<String, Object?>?)?['name'] as String?,
+    imageUrls: (json['imageUrls'] as List? ?? const []).cast<String>(),
     timeline: (json['timeline'] as List? ?? const [])
         .cast<Map<String, Object?>>()
         .map(TimelineEntry.fromJson),
@@ -36,6 +37,7 @@ final class Complaint {
     'dueAt': dueAt?.toUtc().toIso8601String(),
     'feedback': feedback?.toJson(),
     if (authorName != null) 'author': {'name': authorName},
+    'imageUrls': imageUrls,
     'timeline': timeline.map((entry) => entry.toJson()).toList(),
     'allowedTransitions': allowedTransitions
         .map((status) => status.apiValue)
@@ -52,6 +54,7 @@ final class Complaint {
     DateTime? Function()? dueAt,
     ComplaintFeedback? Function()? feedback,
     String? Function()? authorName,
+    Iterable<String>? imageUrls,
     Iterable<TimelineEntry>? timeline,
     Iterable<ComplaintStatus>? allowedTransitions,
   }) => Complaint(
@@ -64,6 +67,7 @@ final class Complaint {
     dueAt: dueAt == null ? this.dueAt : dueAt(),
     feedback: feedback == null ? this.feedback : feedback(),
     authorName: authorName == null ? this.authorName : authorName(),
+    imageUrls: imageUrls ?? this.imageUrls,
     timeline: timeline ?? this.timeline,
     allowedTransitions: allowedTransitions ?? this.allowedTransitions,
   );
@@ -78,9 +82,11 @@ final class Complaint {
     this.dueAt,
     this.feedback,
     this.authorName,
+    Iterable<String> imageUrls = const [],
     required Iterable<TimelineEntry> timeline,
     required Iterable<ComplaintStatus> allowedTransitions,
-  }) : timeline = List.unmodifiable(timeline),
+  }) : imageUrls = List.unmodifiable(imageUrls),
+       timeline = List.unmodifiable(timeline),
        allowedTransitions = List.unmodifiable(allowedTransitions);
 
   final ComplaintSummary summary;
@@ -92,6 +98,7 @@ final class Complaint {
   final DateTime? dueAt;
   final ComplaintFeedback? feedback;
   final String? authorName;
+  final List<String> imageUrls;
   final List<TimelineEntry> timeline;
   final List<ComplaintStatus> allowedTransitions;
 }

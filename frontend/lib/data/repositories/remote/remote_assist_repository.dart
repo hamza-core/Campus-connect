@@ -21,6 +21,10 @@ final class RemoteAssistRepository implements AssistRepository {
   }
 
   @override
+  Future<Uint8List> downloadPhoto(String url) async =>
+      Uint8List.fromList(await _api.download(url));
+
+  @override
   Future<IssueSuggestion> analyze(String imageId, String? description) async {
     final response = await _api.request(
       'POST',

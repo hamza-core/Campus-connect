@@ -87,7 +87,7 @@ Future<void> main() async {
   runApp(
     AppScope(
       dependencies: dependencies,
-      child: CampusConnectApp(router: router, theme: theme),
+      child: CampusConnectApp(router: router, theme: theme, auth: auth),
     ),
   );
   auth.restore();

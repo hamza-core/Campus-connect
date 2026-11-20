@@ -14,6 +14,10 @@ final class MockAssistRepository implements AssistRepository {
       const UploadedPhoto(id: 'mock', url: '/api/v1/uploads/mock');
 
   @override
+  Future<Uint8List> downloadPhoto(String url) =>
+      throw const ServerException('Photos are not available offline.');
+
+  @override
   Future<IssueSuggestion> analyze(String imageId, String? description) =>
       throw const ServerException('Photo analysis is not available offline.');
 
