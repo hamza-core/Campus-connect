@@ -1,6 +1,7 @@
 import '../../../core/controllers/base_controller.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/utils/debouncer.dart';
+import '../../../core/utils/session_cache.dart';
 import '../../../data/repositories/complaint_repository.dart';
 import '../../../domain/enums/complaint_category.dart';
 import '../../../domain/enums/complaint_status.dart';
@@ -9,16 +10,28 @@ import '../../../domain/models/complaint_summary.dart';
 import '../../../domain/models/paged_result.dart';
 import 'department_complaint_pages.dart';
 
+typedef _PageCache =
+    Map<
+      (String, ComplaintCategory?, ComplaintStatus?, String?, bool?),
+      (List<ComplaintSummary>, int, bool)
+    >;
+
 final class ComplaintListController extends BaseController {
-  ComplaintListController(this._repository, {bool department = false})
-    : _history = department ? false : null;
+  ComplaintListController(
+    this._repository, {
+    bool department = false,
+    SessionCache? cache,
+    String scope = '',
+  }) : _history = department ? false : null {
+    // Pages seen before (per list and signed-in user) survive leaving the
+    // screen, so coming back paints them at once and refreshes quietly.
+    final shared = cache?.read<_PageCache>('list-pages:$scope');
+    _cache = shared ?? _PageCache();
+    if (shared == null) cache?.write('list-pages:$scope', _cache);
+  }
   final ComplaintRepository _repository;
   final _debouncer = Debouncer();
-  final _cache =
-      <
-        (String, ComplaintCategory?, ComplaintStatus?, String?, bool?),
-        (List<ComplaintSummary>, int, bool)
-      >{};
+  late final _PageCache _cache;
   final _departmentPages =
       <
         (String, ComplaintCategory?, ComplaintStatus?, String?, bool?),
@@ -69,6 +82,10 @@ final class ComplaintListController extends BaseController {
     () => setFilter(filter.copyWith(search: value.trim())),
   );
 
+  /// First load: paints what this list last showed (if anything), then
+  /// re-checks it quietly. Only a first-ever visit shows a placeholder.
+  Future<void> start() => setFilter(filter);
+
   /// Applies a filter. A previously seen result is shown instantly, then
   /// re-checked in the background so it is never left stale.
   Future<void> setFilter(ComplaintFilter next) async {
@@ -89,6 +106,14 @@ final class ComplaintListController extends BaseController {
     final cached = useCache ? _cache[key] : null;
     loadingMore = false;
     pageError = null;
+    if (cached != null) {
+      showCached(() {
+        items = cached.$1;
+        _page = cached.$2;
+        hasMore = cached.$3;
+      }, isEmpty: cached.$1.isEmpty);
+      return;
+    }
     await run(
       () async {
         if (cached != null) return cached;

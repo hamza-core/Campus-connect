@@ -45,7 +45,10 @@ Future<void> main() async {
   }
 
   final dependencies = AppDependencies.create(config);
-  final auth = AuthController(dependencies.auth);
+  final auth = AuthController(
+    dependencies.auth,
+    onSessionChange: dependencies.cache.clear,
+  );
   dependencies.tokens?.onExpired = auth.expireSession;
   final GoRouter router = AppRouter.authenticated(
     auth: auth,

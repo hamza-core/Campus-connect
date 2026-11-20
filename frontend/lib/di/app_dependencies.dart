@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
+import '../core/utils/session_cache.dart';
 import '../core/network/token_store.dart';
 import '../core/storage/secure_token_storage.dart';
 import '../data/repositories/assist_repository.dart';
@@ -32,6 +33,7 @@ final class AppDependencies {
       final complaints = MockComplaintRepository(auth);
       return AppDependencies(
         config: config,
+        cache: SessionCache(),
         auth: auth,
         complaints: complaints,
         dashboard: MockDashboardRepository(auth, complaints),
@@ -54,6 +56,7 @@ final class AppDependencies {
       );
       return AppDependencies(
         config: config,
+        cache: SessionCache(),
         auth: RemoteAuthRepository(api, tokens, const SecureTokenStorage()),
         complaints: RemoteComplaintRepository(api),
         dashboard: RemoteDashboardRepository(api),
@@ -81,6 +84,7 @@ final class AppDependencies {
 
   const AppDependencies({
     required this.config,
+    required this.cache,
     required this.auth,
     required this.complaints,
     required this.dashboard,
@@ -92,6 +96,7 @@ final class AppDependencies {
 
   final AppConfig config;
   final AuthRepository auth;
+  final SessionCache cache;
   final ComplaintRepository complaints;
   final DashboardRepository dashboard;
   final AssistRepository assist;
